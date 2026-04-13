@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CryptBank - MVP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+      @font-face {
+      font-family: 'Walkway Expand';
+      src: url('./Walkway Expand.ttf') format('truetype');
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: 'Walkway Expand';
+      src: url('./Walkway Expand Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+
+    @font-face {
+      font-family: 'Walkway Expand';
+      src: url('./Walkway Expand Black (1).ttf') format('truetype');
+      font-weight: 900;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue-primary: #3D5675;
+      --light-main: #E8E1DB;
+      --blue-dark: #011842;
+      --panel: rgba(61, 86, 117, 0.18);
+      --panel-border: rgba(232, 225, 219, 0.08);
+      --input-bg: rgba(1, 24, 66, 0.82);
+      --text-soft: rgba(232, 225, 219, 0.62);
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(61, 86, 117, 0.20), transparent 35%),
+        linear-gradient(180deg, #01122f 0%, var(--blue-dark) 100%);
+      color: var(--light-main);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 410px;
+      background: linear-gradient(180deg, rgba(61, 86, 117, 0.18) 0%, rgba(61, 86, 117, 0.10) 100%);
+      border: 1px solid var(--panel-border);
+      border-radius: 22px;
+      padding: 34px 28px 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before,
+    .card::after,
+    .field::before,
+    .field::after,
+    .btn::before,
+    .btn::after,
+    .tab::before,
+    .tab::after {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(61, 86, 117, 0.9);
+      opacity: 0.95;
+    }
+
+    .card::before {
+      top: -1px;
+      left: -1px;
+      border-right: 0;
+      border-bottom: 0;
+      border-radius: 8px 0 0 0;
+    }
+
+    .card::after {
+      right: -1px;
+      bottom: -1px;
+      border-left: 0;
+      border-top: 0;
+      border-radius: 0 0 8px 0;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .logo {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #5d91e5;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 0.84rem;
+      color: var(--text-soft);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .tab {
+      position: relative;
+      border: 1px solid rgba(61, 86, 117, 0.45);
+      border-radius: 10px;
+      background: rgba(1, 24, 66, 0.7);
+      color: #9daabc;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      padding: 14px 10px;
+      cursor: pointer;
+      transition: 0.25s ease;
+      overflow: hidden;
+    }
+
+    .tab::before {
+      left: -1px;
+      bottom: -1px;
+      border-right: 0;
+      border-top: 0;
+      border-radius: 0 0 0 8px;
+      width: 12px;
+      height: 12px;
+    }
+
+    .tab::after {
+      right: -1px;
+      top: -1px;
+      border-left: 0;
+      border-bottom: 0;
+      border-radius: 0 8px 0 0;
+      width: 12px;
+      height: 12px;
+    }
+
+    .tab.active {
+      background: #4a7fdb;
+      color: white;
+      box-shadow: 0 10px 24px rgba(74, 127, 219, 0.28);
+    }
+
+    .form {
+      display: grid;
+      gap: 16px;
+    }
+
+    .group label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(232, 225, 219, 0.78);
+      margin-bottom: 8px;
+    }
+
+    .field {
+      position: relative;
+      width: 100%;
+      border: 1px solid rgba(61, 86, 117, 0.45);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--input-bg);
+    }
+
+    .field::before {
+      left: -1px;
+      bottom: -1px;
+      border-right: 0;
+      border-top: 0;
+      border-radius: 0 0 0 8px;
+      width: 12px;
+      height: 12px;
+    }
+
+    .field::after {
+      right: -1px;
+      bottom: -1px;
+      border-left: 0;
+      border-top: 0;
+      border-radius: 0 0 8px 0;
+      width: 12px;
+      height: 12px;
+    }
+
+    input {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--light-main);
+      padding: 16px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    input::placeholder {
+      color: rgba(232, 225, 219, 0.28);
+    }
+
+    .btn {
+      position: relative;
+      margin-top: 2px;
+      border: none;
+      border-radius: 10px;
+      padding: 17px 16px;
+      background: #4a7fdb;
+      color: white;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(74, 127, 219, 0.25);
+      transition: transform 0.2s ease, filter 0.2s ease;
+      overflow: hidden;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .btn::before {
+      left: -1px;
+      bottom: -1px;
+      border-right: 0;
+      border-top: 0;
+      border-radius: 0 0 0 8px;
+      width: 12px;
+      height: 12px;
+    }
+
+    .btn::after {
+      right: -1px;
+      bottom: -1px;
+      border-left: 0;
+      border-top: 0;
+      border-radius: 0 0 8px 0;
+      width: 12px;
+      height: 12px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 0.75rem;
+      color: rgba(232, 225, 219, 0.42);
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        padding: 28px 18px 18px;
+      }
+
+      .logo {
+        font-size: 1.9rem;
+      }
+
+      .tab,
+      .btn,
+      input {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="header">
+      <h1 class="logo">CryptBank</h1>
+      <p class="subtitle">Seu banco digital em stablecoins</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" type="button">ENTRAR</button>
+      <button class="tab" type="button">CRIAR CONTA</button>
+    </div>
+
+    <form class="form">
+      <div class="group">
+        <label for="email">Email</label>
+        <div class="field">
+          <input id="email" type="email" placeholder="seu@email.com" />
+        </div>
+      </div>
+
+      <div class="group">
+        <label for="senha">Senha</label>
+        <div class="field">
+          <input id="senha" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+
+      <div class="group">
+        <label for="codigo">Código 2FA</label>
+        <div class="field">
+          <input id="codigo" type="text" placeholder="000 000" maxlength="6" />
+        </div>
+      </div>
+
+      <button class="btn" type="submit">ACESSAR MINHA CONTA</button>
+    </form>
+
+    <div class="footer">Protegido por criptografia de ponta a ponta</div>
+  </main>
+</body>
+</html>
