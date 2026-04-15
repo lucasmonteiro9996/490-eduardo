@@ -1,0 +1,114 @@
+@font-face {
+  font-family: 'Walkway Expand';
+  src: url('/Walkway Expand.ttf') format('truetype');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Walkway Expand';
+  src: url('/Walkway Expand Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: 'Walkway Expand';
+  src: url('/Walkway Expand Black (1).ttf') format('truetype');
+  font-weight: 900;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --blue-primary: #3D5675;
+  --light-main: #E8E1DB;
+  --blue-dark: #011842;
+  --blue-deeper: #01122f;
+  --accent: #4a7fdb;
+  --accent-hover: #5d91e5;
+  --accent-glow: rgba(74, 127, 219, 0.25);
+  --panel: rgba(61, 86, 117, 0.18);
+  --panel-border: rgba(232, 225, 219, 0.08);
+  --panel-border-hover: rgba(74, 127, 219, 0.35);
+  --input-bg: rgba(1, 24, 66, 0.82);
+  --text-soft: rgba(232, 225, 219, 0.62);
+  --text-muted: rgba(232, 225, 219, 0.38);
+  --corner-color: rgba(61, 86, 117, 0.9);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --sidebar-width: 240px;
+
+  /* Status colors */
+  --green: #3ecf8e;
+  --red: #e05c7e;
+  --yellow: #f5c842;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(74, 127, 219, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(61, 86, 117, 0.15) 0%, transparent 50%),
+    linear-gradient(180deg, var(--blue-deeper) 0%, var(--blue-dark) 100%);
+  color: var(--light-main);
+  min-height: 100vh;
+}
+
+button {
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(61, 86, 117, 0.5);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 127, 219, 0.6);
+}
+
+/* ---- Corner bracket decoration ---- */
+.corner-box {
+  position: relative;
+}
+.corner-box::before,
+.corner-box::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--corner-color);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.corner-box::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 8px 0 0 0;
+}
+.corner-box::after {
+  right: -1px;
+  bottom: -1px;
+  border-left: 0;
+  border-top: 0;
+  border-radius: 0 0 8px 0;
+}
