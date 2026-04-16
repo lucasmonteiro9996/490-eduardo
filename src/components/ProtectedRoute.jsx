@@ -1,0 +1,21 @@
+import { Navigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+
+export default function ProtectedRoute({ children }) {
+  const { user, loading, hasFirebaseConfig } = useAuth()
+  const location = useLocation()
+
+  if (loading) {
+    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--light-main)' }}>Carregando...</div>
+  }
+
+  if (!hasFirebaseConfig) {
+    return children
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace state={{ from: location }} />
+  }
+
+  return children
+}
