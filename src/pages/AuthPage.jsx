@@ -67,9 +67,9 @@ export default function AuthPage() {
                 <circle cx="14" cy="14" r="3" fill="#4a7fdb" />
               </svg>
             </span>
-            <span className={styles.logoText}>CryptBank</span>
+            <span className={styles.logoText}>DuoBank</span>
           </div>
-          <p className={styles.subtitle}>Seu banco digital em stablecoins</p>
+          <p className={styles.subtitle}>Sua conta digital em Real e Dólar</p>
         </div>
 
         <div className={styles.tabs}>
@@ -196,20 +196,6 @@ export default function AuthPage() {
                     </svg>
                   )}
                 </button>
-              </div>
-            </div>
-          ) : null}
-
-          {tab === 'login' ? (
-            <div className={styles.group}>
-              <label htmlFor="codigo">Codigo 2FA</label>
-              <div className={`${styles.field} corner-box`}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                </span>
-                <input id="codigo" type="text" placeholder="000 000" maxLength={7} />
               </div>
             </div>
           ) : null}

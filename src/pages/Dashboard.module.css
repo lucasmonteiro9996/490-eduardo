@@ -779,6 +779,131 @@
   background: transparent;
 }
 
+/* ── Statement (extrato) ── */
+.statementWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statementToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.statementOwner {
+  font-size: 0.82rem;
+  color: rgba(232, 225, 219, 0.72);
+  margin-right: 14px;
+}
+
+.statementCount {
+  font-size: 0.72rem;
+  color: rgba(232, 225, 219, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.statementHead,
+.statementRow {
+  display: grid;
+  grid-template-columns: 2fr 1.1fr 1fr 1.1fr 80px;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 20px;
+  font-size: 0.82rem;
+}
+
+.statementHead {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid rgba(61, 86, 117, 0.2);
+}
+
+.statementRow {
+  border-bottom: 1px solid rgba(61, 86, 117, 0.1);
+  transition: background 0.18s;
+}
+
+.statementRow:hover {
+  background: rgba(74, 127, 219, 0.05);
+}
+
+.statementRow:last-child {
+  border-bottom: none;
+}
+
+.pdfBtn {
+  background: rgba(76, 134, 255, 0.12);
+  color: #7aa7ff;
+  border: 1px solid rgba(76, 134, 255, 0.28);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.pdfBtn:hover {
+  background: rgba(76, 134, 255, 0.24);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ── Cards gallery (flip card) ── */
+.cardsGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.cardShowcase {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  background: rgba(12, 21, 40, 0.6);
+  border: 1px solid rgba(108, 144, 230, 0.14);
+  border-radius: 16px;
+  align-items: center;
+}
+
+.cardMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.cardMetaLabel {
+  display: block;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(232, 225, 219, 0.5);
+}
+
+.cardMetaValue {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--light-main);
+  margin-top: 2px;
+}
+
+.cardStatusOk {
+  color: var(--green);
+}
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .twoCol {
@@ -791,6 +916,18 @@
   .dashboardStats,
   .dashboardActions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .statementHead,
+  .statementRow {
+    grid-template-columns: 1.6fr 1fr 1fr 70px;
+  }
+
+  .statementHead span:nth-child(3),
+  .statementRow > .txStatus {
+    display: none;
   }
 }
 

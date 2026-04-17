@@ -70,7 +70,7 @@ export default function Sidebar() {
             <polygon points="14,7 21,11 21,17 14,21 7,17 7,11" fill="rgba(74,127,219,0.15)" stroke="#4a7fdb" strokeWidth="1.2" />
             <circle cx="14" cy="14" r="3" fill="#4a7fdb" />
           </svg>
-          {!collapsed ? <span className={styles.logoText}>CryptBank</span> : null}
+          {!collapsed ? <span className={styles.logoText}>DuoBank</span> : null}
         </div>
         <button className={styles.collapseBtn} onClick={() => setCollapsed((value) => !value)} title={collapsed ? 'Expandir' : 'Recolher'} type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

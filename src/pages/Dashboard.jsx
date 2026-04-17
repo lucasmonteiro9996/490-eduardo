@@ -4,20 +4,18 @@ import styles from './Dashboard.module.css'
 
 /* ── Mock data ── */
 const BALANCES = [
-  { symbol: 'USDT', name: 'Tether USD', amount: '12,840.50', usd: '12,840.50', change: '+2.3%', up: true, color: '#26a17b' },
-  { symbol: 'USDC', name: 'USD Coin', amount: '5,210.00', usd: '5,210.00', change: '+0.8%', up: true, color: '#2775ca' },
-  { symbol: 'BRL', name: 'Real Brasileiro', amount: 'R$18,600.00', usd: '3,720.00', change: '-0.4%', up: false, color: '#3ecf8e' },
-  { symbol: 'BTC', name: 'Bitcoin', amount: '0.1842', usd: '11,230.00', change: '+5.1%', up: true, color: '#f7931a' },
+  { symbol: 'BRL', name: 'Real Brasileiro', amount: 'R$ 18.600,00', usd: '3,720.00', change: '+0.4%', up: true, color: '#3ecf8e' },
+  { symbol: 'USD', name: 'Dólar Americano', amount: '$ 9,450.00', usd: '9,450.00', change: '+0.2%', up: true, color: '#4a7fdb' },
 ]
 
 const TRANSACTIONS = [
-  { id: 1, type: 'receive', label: 'Depósito USDT', from: 'Binance Exchange', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
-  { id: 2, type: 'send', label: 'Transferência PIX', from: 'Para: João Silva', amount: '-R$850.00', time: 'Hoje, 11:15', status: 'completed' },
-  { id: 3, type: 'exchange', label: 'Câmbio USDC → BRL', from: 'Taxa: 0.1%', amount: '+R$3,012.00', time: 'Ontem, 18:44', status: 'completed' },
-  { id: 4, type: 'send', label: 'Pagamento Conta Luz', from: 'Energisa SP', amount: '-R$214.50', time: 'Ontem, 09:20', status: 'completed' },
-  { id: 5, type: 'receive', label: 'Recebimento USDC', from: 'Pedro Alves', amount: '+$600.00', time: '13/04, 16:00', status: 'completed' },
-  { id: 6, type: 'send', label: 'Transferência USDT', from: 'Para: Kraken', amount: '-$1,200.00', time: '12/04, 21:10', status: 'pending' },
-  { id: 7, type: 'exchange', label: 'Câmbio BTC → USDT', from: 'Taxa: 0.15%', amount: '+$4,340.00', time: '11/04, 08:55', status: 'completed' },
+  { id: 1, type: 'receive', label: 'Depósito em Dólar', from: 'Transferência internacional', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
+  { id: 2, type: 'send', label: 'Transferência PIX', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
+  { id: 3, type: 'exchange', label: 'Câmbio USD → BRL', from: 'Taxa: 0.5%', amount: '+R$3.012,00', time: 'Ontem, 18:44', status: 'completed' },
+  { id: 4, type: 'send', label: 'Pagamento Conta Luz', from: 'Energisa SP', amount: '-R$214,50', time: 'Ontem, 09:20', status: 'completed' },
+  { id: 5, type: 'receive', label: 'Depósito em Real', from: 'Boleto bancário', amount: '+R$1.200,00', time: '13/04, 16:00', status: 'completed' },
+  { id: 6, type: 'send', label: 'Transferência internacional', from: 'Para: Conta Miami', amount: '-$1,200.00', time: '12/04, 21:10', status: 'pending' },
+  { id: 7, type: 'exchange', label: 'Câmbio BRL → USD', from: 'Taxa: 0.5%', amount: '+$420.00', time: '11/04, 08:55', status: 'completed' },
 ]
 
 const QUICK_ACTIONS = [
