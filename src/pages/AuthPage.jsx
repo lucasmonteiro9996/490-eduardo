@@ -11,16 +11,16 @@ export default function AuthPage() {
   const [pending, setPending] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, login, register, hasFirebaseConfig } = useAuth()
+  const { user, login, register, hasFirebaseConfig, demoMode } = useAuth()
 
   async function handleSubmit(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
-    const email = String(formData.get('email') || '').trim()
-    const password = String(formData.get('senha') || '')
+    const email = String(formData.get('login_email') || '').trim()
+    const password = String(formData.get('access_key') || '')
     const name = String(formData.get('name') || '').trim()
     const cpf = String(formData.get('cpf') || '').trim()
-    const confirmPassword = String(formData.get('confirmSenha') || '')
+    const confirmPassword = String(formData.get('confirm_access_key') || '')
 
     setErrorMessage('')
 
@@ -42,7 +42,7 @@ export default function AuthPage() {
 
       navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (error) {
-      setErrorMessage(error?.message || 'Nao foi possivel autenticar agora.')
+      setErrorMessage(error?.message || 'Não foi possível autenticar agora.')
     } finally {
       setPending(false)
     }
@@ -60,16 +60,17 @@ export default function AuthPage() {
       <main className={`${styles.card} corner-box`}>
         <div className={styles.header}>
           <div className={styles.logoWrap}>
-            <span className={styles.logoIcon}>
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <polygon points="14,2 26,8 26,20 14,26 2,20 2,8" fill="none" stroke="#4a7fdb" strokeWidth="2" />
-                <polygon points="14,7 21,11 21,17 14,21 7,17 7,11" fill="rgba(74,127,219,0.15)" stroke="#4a7fdb" strokeWidth="1.2" />
-                <circle cx="14" cy="14" r="3" fill="#4a7fdb" />
-              </svg>
-            </span>
-            <span className={styles.logoText}>DuoBank</span>
+            <img
+              src="/branding/logo-sem-fundo.png"
+              alt="Ocean Capital Payment Manager"
+              className={styles.logoMark}
+            />
+            <img
+              src="/branding/logo-escritos-sem-fundo.png"
+              alt="Ocean Capital Payment Manager"
+              className={styles.logoImage}
+            />
           </div>
-          <p className={styles.subtitle}>Sua conta digital em Real e Dólar</p>
         </div>
 
         <div className={styles.tabs}>
@@ -98,14 +99,14 @@ export default function AuthPage() {
                 <line x1="22" y1="11" x2="16" y2="11" />
               </svg>
             </span>
-            Criar Conta
+            Criar conta
           </button>
         </div>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form className={styles.form} onSubmit={handleSubmit} autoComplete="off">
           {tab === 'register' ? (
             <div className={styles.group}>
-              <label htmlFor="name">Nome Completo</label>
+              <label htmlFor="name">Nome completo</label>
               <div className={`${styles.field} corner-box`}>
                 <span className={styles.fieldIcon}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -127,7 +128,7 @@ export default function AuthPage() {
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                 </svg>
               </span>
-              <input id="email" name="email" type="email" placeholder="seu@email.com" required />
+              <input id="email" name="login_email" type="email" placeholder="seu@email.com" autoComplete="off" required />
             </div>
           </div>
 
@@ -155,7 +156,14 @@ export default function AuthPage() {
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
               </span>
-              <input id="senha" name="senha" type={showPass ? 'text' : 'password'} placeholder="********" required />
+              <input
+                id="senha"
+                name="access_key"
+                type={showPass ? 'text' : 'password'}
+                placeholder="********"
+                autoComplete={tab === 'login' ? 'off' : 'new-password'}
+                required
+              />
               <button type="button" className={styles.eyeBtn} onClick={() => setShowPass((value) => !value)}>
                 {showPass ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -182,7 +190,14 @@ export default function AuthPage() {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                 </span>
-                <input id="confirmSenha" name="confirmSenha" type={showConfirm ? 'text' : 'password'} placeholder="********" required />
+                <input
+                  id="confirmSenha"
+                  name="confirm_access_key"
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="********"
+                  autoComplete="new-password"
+                  required
+                />
                 <button type="button" className={styles.eyeBtn} onClick={() => setShowConfirm((value) => !value)}>
                   {showConfirm ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -202,7 +217,13 @@ export default function AuthPage() {
 
           {!hasFirebaseConfig ? (
             <p className={styles.termsText}>
-              Firebase nao configurado. A autenticacao e o Firestore entram em modo demonstracao ate preencher as variaveis VITE_FIREBASE_*.
+              Firebase não configurado. A autenticação e o Firestore entram em modo de demonstração até que as variáveis `VITE_FIREBASE_*` sejam preenchidas.
+            </p>
+          ) : null}
+
+          {demoMode ? (
+            <p className={styles.termsText}>
+              Firebase indisponível no momento. Você entrou em modo de demonstração para visualizar a interface com dados locais.
             </p>
           ) : null}
 
@@ -218,7 +239,7 @@ export default function AuthPage() {
 
           {tab === 'register' ? (
             <p className={styles.termsText}>
-              Ao criar uma conta, voce concorda com nossos <a href="#" className={styles.link}>Termos de Uso</a> e <a href="#" className={styles.link}>Politica de Privacidade</a>.
+              Ao criar uma conta, você concorda com nossos <a href="#" className={styles.link}>Termos de Uso</a> e com a <a href="#" className={styles.link}>Política de Privacidade</a>.
             </p>
           ) : null}
         </form>

@@ -876,6 +876,31 @@
   align-items: center;
 }
 
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.cardDeleteButton {
+  border: 1px solid rgba(224, 92, 126, 0.24);
+  background: rgba(224, 92, 126, 0.1);
+  color: #ff98b0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.cardDeleteButton:hover {
+  background: rgba(224, 92, 126, 0.18);
+  color: #ffd4df;
+  transform: translateY(-1px);
+}
+
 .cardMeta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -904,6 +929,165 @@
   color: var(--green);
 }
 
+.cardComposerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+}
+
+.cardComposer,
+.cardInstructions {
+  background: linear-gradient(180deg, rgba(12, 21, 40, 0.88) 0%, rgba(7, 13, 28, 0.96) 100%);
+  border: 1px solid rgba(108, 144, 230, 0.14);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.cardComposer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cardComposerHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cardComposerKicker {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(232, 225, 219, 0.45);
+}
+
+.cardComposerTitle {
+  font-size: 1.1rem;
+  color: var(--light-main);
+  margin: 0;
+}
+
+.cardComposerText {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: rgba(232, 225, 219, 0.68);
+  margin: 0;
+  max-width: 54ch;
+}
+
+.cardFieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cardField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cardField span {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: rgba(232, 225, 219, 0.7);
+}
+
+.cardField input,
+.cardField select {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(108, 144, 230, 0.16);
+  background: rgba(2, 8, 20, 0.86);
+  color: var(--light-main);
+  padding: 0 14px;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cardField input:focus,
+.cardField select:focus {
+  border-color: rgba(76, 134, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(76, 134, 255, 0.12);
+}
+
+.cardComposerMessage {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9cc2ff;
+  background: rgba(33, 78, 170, 0.14);
+  border: 1px solid rgba(76, 134, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.cardComposerButton {
+  min-height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #58b7f1 0%, #3f8edb 100%);
+  color: #07111f;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.cardComposerButton:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.cardInstructions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cardInstructionsHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--light-main);
+}
+
+.cardInstructionsIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cardInstructionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(232, 225, 219, 0.75);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.cardInstructionsNote {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #88aef0;
+  background: rgba(30, 62, 130, 0.16);
+  border: 1px solid rgba(76, 134, 255, 0.16);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1100px) {
   .twoCol {
@@ -915,6 +1099,10 @@
 
   .dashboardStats,
   .dashboardActions {
+    grid-template-columns: 1fr;
+  }
+
+  .cardComposerGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -967,6 +1155,10 @@
 
   .statsGrid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .cardFieldRow {
+    grid-template-columns: 1fr;
   }
 
   .dashboardTableHead,

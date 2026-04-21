@@ -1,15 +1,15 @@
 export const mockWallets = [
   { id: 'brl', symbol: 'BRL', name: 'Real Brasileiro', native: 18600, change: '+0,4%', up: true, color: '#3ecf8e' },
-  { id: 'usd', symbol: 'USD', name: 'Dolar Americano', native: 9450, change: '+0,2%', up: true, color: '#4a7fdb' },
+  { id: 'usd', symbol: 'USD', name: 'Dólar americano', native: 9450, change: '+0,2%', up: true, color: '#4a7fdb' },
 ]
 
 export const mockTransactions = [
-  { id: 'tx-1', type: 'receive', label: 'Deposito em Dolar', from: 'Transferencia internacional', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
-  { id: 'tx-2', type: 'send', label: 'Transferencia PIX', from: 'Para: Joao Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
-  { id: 'tx-3', type: 'exchange', label: 'Cambio USD para BRL', from: 'Taxa: 0,5%', amount: '+R$3.012,00', time: 'Ontem, 18:44', status: 'completed' },
-  { id: 'tx-4', type: 'send', label: 'Pagamento Cartao', from: 'Assinatura Premium', amount: '-R$214,50', time: 'Ontem, 09:20', status: 'pending' },
-  { id: 'tx-5', type: 'receive', label: 'Deposito em Real', from: 'Boleto bancario', amount: '+R$1.200,00', time: '15/04, 10:05', status: 'completed' },
-  { id: 'tx-6', type: 'exchange', label: 'Cambio BRL para USD', from: 'Taxa: 0,5%', amount: '+$420.00', time: '13/04, 16:40', status: 'completed' },
+  { id: 'tx-1', type: 'receive', label: 'Depósito em dólar', from: 'Transferência internacional', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
+  { id: 'tx-2', type: 'send', label: 'Transferência via PIX', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
+  { id: 'tx-3', type: 'exchange', label: 'Câmbio de USD para BRL', from: 'Taxa: 0,5%', amount: '+R$3.012,00', time: 'Ontem, 18:44', status: 'completed' },
+  { id: 'tx-4', type: 'send', label: 'Pagamento do cartão', from: 'Assinatura premium', amount: '-R$214,50', time: 'Ontem, 09:20', status: 'pending' },
+  { id: 'tx-5', type: 'receive', label: 'Depósito em real', from: 'Boleto bancário', amount: '+R$1.200,00', time: '15/04, 10:05', status: 'completed' },
+  { id: 'tx-6', type: 'exchange', label: 'Câmbio de BRL para USD', from: 'Taxa: 0,5%', amount: '+$420.00', time: '13/04, 16:40', status: 'completed' },
 ]
 
 export const mockCards = [
@@ -23,13 +23,13 @@ export const mockRates = [
 ]
 
 export const mockSecurityEvents = [
-  { id: 'sec-1', title: 'Verificacao em duas etapas', description: 'Sua conta esta protegida por autenticacao adicional no login.' },
-  { id: 'sec-2', title: 'Ultimo acesso', description: 'Login realizado em Sao Paulo, Brasil.' },
+  { id: 'sec-1', title: 'Verificação em duas etapas', description: 'Sua conta está protegida por autenticação adicional no login.' },
+  { id: 'sec-2', title: 'Último acesso', description: 'Login realizado em São Paulo, Brasil.' },
 ]
 
 export const mockSettings = [
-  { id: 'set-1', label: 'Moeda padrao', value: 'BRL' },
-  { id: 'set-2', label: 'Moeda secundaria', value: 'USD' },
-  { id: 'set-3', label: 'Idioma da conta', value: 'Portugues (Brasil)' },
-  { id: 'set-4', label: 'Notificacoes', value: 'Email e push' },
+  { id: 'set-1', label: 'Moeda padrão', value: 'BRL' },
+  { id: 'set-2', label: 'Moeda secundária', value: 'USD' },
+  { id: 'set-3', label: 'Idioma da conta', value: 'Português (Brasil)' },
+  { id: 'set-4', label: 'Notificações', value: 'E-mail e push' },
 ]

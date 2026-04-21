@@ -26,6 +26,7 @@
   padding: 22px 16px 22px 18px;
   border-bottom: 1px solid rgba(61, 86, 117, 0.2);
   min-height: 72px;
+  position: relative;
 }
 
 .logoWrap {
@@ -33,15 +34,23 @@
   align-items: center;
   gap: 10px;
   overflow: hidden;
+  min-width: 0;
 }
 
-.logoText {
-  font-family: 'Walkway Expand', 'Inter', sans-serif;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: #5d91e5;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
+.logoMark {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logoTextImage {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  max-width: 148px;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
 }
 
 .collapseBtn {
@@ -109,6 +118,7 @@
 .navIcon {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -211,4 +221,46 @@
 .logoutBtn:hover {
   color: var(--red);
   background: rgba(224, 92, 126, 0.1);
+}
+
+.sidebar.collapsed .logoArea {
+  justify-content: center;
+  padding: 18px 10px 16px;
+}
+
+.sidebar.collapsed .logoWrap {
+  width: 100%;
+  justify-content: center;
+}
+
+.sidebar.collapsed .logoMark {
+  width: 30px;
+  height: 30px;
+}
+
+.sidebar.collapsed .collapseBtn {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  padding: 3px;
+  color: rgba(232, 225, 219, 0.24);
+}
+
+.sidebar.collapsed .nav {
+  align-items: center;
+  padding: 14px 6px 18px;
+  gap: 8px;
+}
+
+.sidebar.collapsed .navItem {
+  width: 46px;
+  height: 46px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 14px;
+}
+
+.sidebar.collapsed .badgeDot {
+  top: 10px;
+  right: 10px;
 }

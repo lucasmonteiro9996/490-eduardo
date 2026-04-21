@@ -10,10 +10,30 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, hasFirebaseConfig } from '../lib/firebase.js'
 
 const AuthContext = createContext(null)
+const DEMO_USER = {
+  uid: 'demo-user',
+  email: 'demo@oceancapital.local',
+  displayName: 'Ocean Capital Demo',
+}
+
+function shouldUseDemoMode(error) {
+  const code = String(error?.code || '').toLowerCase()
+  const message = String(error?.message || '').toLowerCase()
+
+  return (
+    code.includes('permission-denied') ||
+    code.includes('invalid-api-key') ||
+    code.includes('api-key-not-valid') ||
+    message.includes('has been suspended') ||
+    message.includes('api key') ||
+    message.includes('permission-denied')
+  )
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => {
     if (!hasFirebaseConfig || !auth) {
@@ -33,20 +53,46 @@ export function AuthProvider({ children }) {
     user,
     loading,
     hasFirebaseConfig,
+    demoMode,
     async login(email, password) {
       if (!auth) {
-        throw new Error('Firebase nao configurado. Preencha as variaveis VITE_FIREBASE_*.')
+        throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
       }
 
-      const credential = await signInWithEmailAndPassword(auth, email, password)
-      return credential.user
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password)
+        setDemoMode(false)
+        return credential.user
+      } catch (error) {
+        if (shouldUseDemoMode(error)) {
+          setDemoMode(true)
+          setUser(DEMO_USER)
+          return DEMO_USER
+        }
+        throw error
+      }
     },
     async register({ name, email, password, cpf }) {
       if (!auth) {
-        throw new Error('Firebase nao configurado. Preencha as variaveis VITE_FIREBASE_*.')
+        throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
       }
 
-      const credential = await createUserWithEmailAndPassword(auth, email, password)
+      let credential
+      try {
+        credential = await createUserWithEmailAndPassword(auth, email, password)
+      } catch (error) {
+        if (shouldUseDemoMode(error)) {
+          const mockUser = {
+            ...DEMO_USER,
+            email: email || DEMO_USER.email,
+            displayName: name || DEMO_USER.displayName,
+          }
+          setDemoMode(true)
+          setUser(mockUser)
+          return mockUser
+        }
+        throw error
+      }
 
       if (name) {
         await updateProfile(credential.user, { displayName: name })
@@ -70,6 +116,12 @@ export function AuthProvider({ children }) {
       return credential.user
     },
     async logout() {
+      if (demoMode) {
+        setDemoMode(false)
+        setUser(null)
+        return
+      }
+
       if (!auth) {
         setUser(null)
         return
@@ -77,7 +129,7 @@ export function AuthProvider({ children }) {
 
       await signOut(auth)
     },
-  }), [loading, user])
+  }), [demoMode, loading, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

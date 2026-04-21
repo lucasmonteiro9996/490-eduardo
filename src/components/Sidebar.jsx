@@ -59,18 +59,24 @@ function Icon({ id }) {
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { user } = useAuth()
-  const initials = (user?.displayName || user?.email || 'CB').slice(0, 2).toUpperCase()
+  const initials = (user?.displayName || user?.email || 'OC').slice(0, 2).toUpperCase()
 
   return (
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
       <div className={styles.logoArea}>
         <div className={styles.logoWrap}>
-          <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-            <polygon points="14,2 26,8 26,20 14,26 2,20 2,8" fill="none" stroke="#4a7fdb" strokeWidth="2" />
-            <polygon points="14,7 21,11 21,17 14,21 7,17 7,11" fill="rgba(74,127,219,0.15)" stroke="#4a7fdb" strokeWidth="1.2" />
-            <circle cx="14" cy="14" r="3" fill="#4a7fdb" />
-          </svg>
-          {!collapsed ? <span className={styles.logoText}>DuoBank</span> : null}
+          <img
+            src="/branding/logo-sem-fundo.png"
+            alt="Ocean Capital Payment Manager"
+            className={styles.logoMark}
+          />
+          {!collapsed ? (
+            <img
+              src="/branding/logo-escritos-sem-fundo.png"
+              alt="Ocean Capital Payment Manager"
+              className={styles.logoTextImage}
+            />
+          ) : null}
         </div>
         <button className={styles.collapseBtn} onClick={() => setCollapsed((value) => !value)} title={collapsed ? 'Expandir' : 'Recolher'} type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -98,18 +104,18 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className={styles.userArea}>
-        <div className={styles.avatar}>{initials}</div>
-        {!collapsed ? (
+      {!collapsed ? (
+        <div className={styles.userArea}>
+          <div className={styles.avatar}>{initials}</div>
           <div className={styles.userInfo}>
             <span className={styles.userName}>{user?.displayName || 'Conta local'}</span>
             <span className={styles.userPlan}>
               <span className={styles.planDot} />
-              Firebase ready
+              Firebase pronto
             </span>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </aside>
   )
 }

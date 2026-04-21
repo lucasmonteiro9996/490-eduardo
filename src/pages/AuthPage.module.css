@@ -49,34 +49,30 @@
 /* Header / Logo */
 .header {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .logoWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.logoIcon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 0;
+  flex-wrap: wrap;
 }
 
-.logoText {
-  font-family: 'Walkway Expand', 'Inter', sans-serif;
-  font-weight: 700;
-  font-size: 1.8rem;
-  color: #5d91e5;
-  letter-spacing: 0.02em;
-  line-height: 1;
+.logoMark {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
 }
 
-.subtitle {
-  font-size: 0.82rem;
-  color: var(--text-soft);
-  letter-spacing: 0.02em;
+.logoImage {
+  width: min(100%, 196px);
+  height: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
 }
 
 /* Tabs */
@@ -287,7 +283,12 @@
     padding: 18px 16px 14px;
   }
 
-  .logoText {
-    font-size: 1.45rem;
+  .logoMark {
+    width: 56px;
+    height: 56px;
+  }
+
+  .logoImage {
+    width: min(100%, 166px);
   }
 }

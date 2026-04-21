@@ -10,13 +10,13 @@ function escapeHtml(value = '') {
 export function openTransactionPdf(tx, meta = {}) {
   if (!tx) return
   const id = escapeHtml(tx.id || '')
-  const label = escapeHtml(tx.label || 'Movimentacao')
+  const label = escapeHtml(tx.label || 'Movimentação')
   const from = escapeHtml(tx.from || '')
   const amount = escapeHtml(tx.amount || '')
   const time = escapeHtml(tx.time || '')
-  const status = escapeHtml(tx.status === 'pending' ? 'Pendente' : 'Concluido')
-  const kind = tx.type === 'receive' ? 'Deposito' : tx.type === 'send' ? 'Saque' : 'Cambio'
-  const owner = escapeHtml(meta.owner || 'Cliente DuoBank')
+  const status = escapeHtml(tx.status === 'pending' ? 'Pendente' : 'Concluído')
+  const kind = tx.type === 'receive' ? 'Depósito' : tx.type === 'send' ? 'Saque' : 'Câmbio'
+  const owner = escapeHtml(meta.owner || 'Cliente Ocean Capital')
   const generatedAt = new Date().toLocaleString('pt-BR')
   const positive = !String(tx.amount || '').startsWith('-')
   const amountColor = positive ? '#0c8a5a' : '#b5364f'
@@ -149,7 +149,7 @@ export function openTransactionPdf(tx, meta = {}) {
 <body>
   <div class="sheet">
     <header>
-      <div class="brand">DuoBank</div>
+      <div class="brand">Ocean Capital</div>
       <div class="timestamp">Gerado em ${escapeHtml(generatedAt)}</div>
     </header>
     <span class="kind">Comprovante de ${escapeHtml(kind)}</span>
@@ -162,7 +162,7 @@ export function openTransactionPdf(tx, meta = {}) {
         <dd>${owner}</dd>
       </div>
       <div>
-        <dt>ID da transacao</dt>
+        <dt>ID da transação</dt>
         <dd>${id}</dd>
       </div>
       <div>
@@ -183,7 +183,7 @@ export function openTransactionPdf(tx, meta = {}) {
       </div>
     </dl>
     <footer>
-      <span>DuoBank - Conta digital em Real e Dolar</span>
+      <span>Ocean Capital Payment Manager</span>
       <span>Documento emitido eletronicamente</span>
     </footer>
     <div class="btns">
@@ -206,8 +206,9 @@ export function openTransactionPdf(tx, meta = {}) {
 }
 
 export function openStatementPdf(transactions = [], meta = {}) {
-  const owner = escapeHtml(meta.owner || 'Cliente DuoBank')
+  const owner = escapeHtml(meta.owner || 'Cliente Ocean Capital')
   const generatedAt = new Date().toLocaleString('pt-BR')
+  const totalLabel = `${transactions.length} ${transactions.length === 1 ? 'movimentação' : 'movimentações'}`
   const rows = transactions
     .map((tx) => {
       const positive = !String(tx.amount || '').startsWith('-')
@@ -216,7 +217,7 @@ export function openStatementPdf(transactions = [], meta = {}) {
         <td>${escapeHtml(tx.time || '')}</td>
         <td>${escapeHtml(tx.label || '')}</td>
         <td>${escapeHtml(tx.from || '-')}</td>
-        <td>${escapeHtml(tx.status === 'pending' ? 'Pendente' : 'Concluido')}</td>
+        <td>${escapeHtml(tx.status === 'pending' ? 'Pendente' : 'Concluído')}</td>
         <td style="color:${color};font-weight:700;text-align:right">${escapeHtml(tx.amount || '')}</td>
       </tr>`
     })
@@ -226,7 +227,7 @@ export function openStatementPdf(transactions = [], meta = {}) {
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Extrato - DuoBank</title>
+  <title>Extrato - Ocean Capital</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 32px; }
@@ -244,20 +245,20 @@ export function openStatementPdf(transactions = [], meta = {}) {
 </head>
 <body>
   <header>
-    <div class="brand">DuoBank</div>
+    <div class="brand">Ocean Capital</div>
     <div>Extrato gerado em ${escapeHtml(generatedAt)}</div>
   </header>
-  <h1>Extrato Consolidado</h1>
+  <h1>Extrato consolidado</h1>
   <p style="margin:0 0 14px;color:#5d6b87">Cliente: <strong>${owner}</strong></p>
   <table>
     <thead>
-      <tr><th>Data</th><th>Descricao</th><th>Origem / Destino</th><th>Status</th><th style="text-align:right">Valor</th></tr>
+      <tr><th>Data</th><th>Descrição</th><th>Origem / destino</th><th>Status</th><th style="text-align:right">Valor</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
   <footer>
-    <span>DuoBank - Conta digital em Real e Dolar</span>
-    <span>${transactions.length} movimentacao(oes)</span>
+    <span>Ocean Capital Payment Manager</span>
+    <span>${totalLabel}</span>
   </footer>
   <div class="btns"><button class="btn" onclick="window.print()">Salvar em PDF / Imprimir</button></div>
   <script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));</script>

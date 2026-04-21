@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import styles from './MoneyModal.module.css'
 
 const depositSources = {
-  BRL: ['PIX', 'TED', 'Boleto bancario', 'Deposito em dinheiro'],
-  USD: ['Transferencia internacional (SWIFT)', 'Wire transfer', 'ACH', 'Deposito em conta corrente'],
+  BRL: ['PIX', 'TED', 'Boleto bancário', 'Depósito em dinheiro'],
+  USD: ['Transferência internacional (SWIFT)', 'Wire transfer', 'ACH', 'Depósito em conta corrente'],
 }
 
 const withdrawDestinations = {
   BRL: ['PIX', 'TED', 'Pagamento de boleto', 'Saque em caixa 24h'],
-  USD: ['Transferencia internacional (SWIFT)', 'Wire transfer', 'ACH', 'Saque em caixa 24h'],
+  USD: ['Transferência internacional (SWIFT)', 'Wire transfer', 'ACH', 'Saque em caixa 24h'],
 }
 
 export default function MoneyModal({ mode, open, onClose, onConfirm }) {
@@ -39,8 +39,8 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
 
   const isDeposit = mode === 'deposit'
   const title = isDeposit ? 'Depositar' : 'Sacar'
-  const actionLabel = isDeposit ? 'Confirmar deposito' : 'Confirmar saque'
-  const extraLabel = isDeposit ? 'Origem do deposito' : 'Destino do saque'
+  const actionLabel = isDeposit ? 'Confirmar depósito' : 'Confirmar saque'
+  const extraLabel = isDeposit ? 'Origem do depósito' : 'Destino do saque'
   const extraOptions = isDeposit ? depositSources[symbol] : withdrawDestinations[symbol]
   const currencySymbol = symbol === 'BRL' ? 'R$' : '$'
 
@@ -61,7 +61,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={`${styles.modal} corner-box`} onClick={(e) => e.stopPropagation()}>
+      <div className={`${styles.modal} corner-box`} onClick={(event) => event.stopPropagation()}>
         <div className={styles.head}>
           <div>
             <span className={styles.kicker}>{isDeposit ? 'Entrada de dinheiro' : 'Retirada de dinheiro'}</span>
@@ -81,7 +81,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
                 className={`${styles.currencyBtn} ${symbol === code ? styles.currencyBtnActive : ''}`}
                 onClick={() => setSymbol(code)}
               >
-                {code === 'BRL' ? 'Real (BRL)' : 'Dolar (USD)'}
+                {code === 'BRL' ? 'Real (BRL)' : 'Dólar (USD)'}
               </button>
             ))}
           </div>
@@ -113,13 +113,13 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
           </label>
 
           <label className={styles.label}>
-            Observacao (opcional)
+            Observação (opcional)
             <input
               type="text"
               className={`${styles.input} corner-box`}
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder={isDeposit ? 'Ex: recebimento de cliente' : 'Ex: aluguel abril'}
+              placeholder={isDeposit ? 'Ex.: recebimento de cliente' : 'Ex.: aluguel de abril'}
               maxLength={80}
             />
           </label>

@@ -80,8 +80,8 @@ export function WorkspaceProvider({ children }) {
       const tx = {
         id: `tx-${Date.now()}`,
         type: 'receive',
-        label: `Deposito em ${symbol === 'BRL' ? 'Real' : 'Dolar'}`,
-        from: source || (symbol === 'BRL' ? 'PIX' : 'Transferencia internacional'),
+        label: `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'}`,
+        from: source || (symbol === 'BRL' ? 'PIX' : 'Transferência internacional'),
         amount: formatSigned(numeric, symbol),
         time: nowLabel(),
         status: 'completed',
@@ -102,8 +102,8 @@ export function WorkspaceProvider({ children }) {
       const tx = {
         id: `tx-${Date.now()}`,
         type: 'send',
-        label: `Saque em ${symbol === 'BRL' ? 'Real' : 'Dolar'}`,
-        from: destination || (symbol === 'BRL' ? 'PIX saida' : 'Transferencia internacional'),
+        label: `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'}`,
+        from: destination || (symbol === 'BRL' ? 'Saída via PIX' : 'Transferência internacional'),
         amount: formatSigned(-numeric, symbol),
         time: nowLabel(),
         status: 'completed',
