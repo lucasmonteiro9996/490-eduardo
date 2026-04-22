@@ -5,3 +5,7 @@ export const navItems = [
   { id: 'cards', label: 'Cartões', path: '/dashboard/cartoes', badge: null },
   { id: 'settings', label: 'Configurações', path: '/dashboard/configuracoes', badge: null },
 ]
+
+export const adminNavItems = [
+  { id: 'admin', label: 'Painel Admin', path: '/dashboard/admin', badge: null },
+]

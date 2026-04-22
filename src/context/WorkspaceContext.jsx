@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { loadWorkspaceData } from '../lib/firestoreService.js'
+import {
+  sendDepositRequestToAdmin,
+  sendWithdrawRequestToAdmin,
+  sendApprovalToUser,
+  sendRejectionToUser,
+  getUserInbox,
+  markUserNotificationRead,
+} from '../lib/mockEmailService.js'
 import { useAuth } from './AuthContext.jsx'
 
 const WorkspaceContext = createContext(null)
@@ -37,6 +45,12 @@ export function WorkspaceProvider({ children }) {
     settings: { data: [], status: 'loading' },
   })
 
+  // Solicitações pendentes aguardando aprovação do admin
+  const [pendingRequests, setPendingRequests] = useState([])
+
+  // Notificações do usuário (respostas do admin)
+  const [userNotifications, setUserNotifications] = useState([])
+
   useEffect(() => {
     let active = true
     loadWorkspaceData(user?.uid).then((result) => {
@@ -47,6 +61,8 @@ export function WorkspaceProvider({ children }) {
       active = false
     }
   }, [user?.uid])
+
+  // ── Helpers internos ─────────────────────────────────────────────────────
 
   const updateWalletBalance = useCallback((symbol, delta) => {
     setState((prev) => ({
@@ -72,48 +88,156 @@ export function WorkspaceProvider({ children }) {
     }))
   }, [])
 
-  const deposit = useCallback(
-    ({ symbol, amount, source }) => {
+  const updateTransaction = useCallback((txId, patch) => {
+    setState((prev) => ({
+      ...prev,
+      transactions: {
+        ...prev.transactions,
+        data: prev.transactions.data.map((tx) =>
+          tx.id === txId ? { ...tx, ...patch } : tx,
+        ),
+      },
+    }))
+  }, [])
+
+  // ── submitRequest — cria pendência sem mexer no saldo ────────────────────
+
+  const submitRequest = useCallback(
+    ({ type, symbol, amount, source, destination }) => {
       const numeric = Number(amount) || 0
       if (numeric <= 0) return null
-      updateWalletBalance(symbol, numeric)
+
+      const requestId = `req-${Date.now()}`
+      const txId = `tx-${Date.now()}`
+      const formatted = formatCurrency(numeric, symbol)
+      const userEmail = user?.email || 'cliente@oceancapital.com'
+
+      // Transação pendente (sem saldo mudado ainda)
       const tx = {
-        id: `tx-${Date.now()}`,
-        type: 'receive',
-        label: `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'}`,
-        from: source || (symbol === 'BRL' ? 'PIX' : 'Transferência internacional'),
-        amount: formatSigned(numeric, symbol),
+        id: txId,
+        type: type === 'deposit' ? 'receive' : 'send',
+        label: type === 'deposit'
+          ? `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando`
+          : `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando`,
+        from: source || destination || (symbol === 'BRL' ? 'PIX' : 'Transferência'),
+        amount: type === 'deposit' ? formatSigned(numeric, symbol) : formatSigned(-numeric, symbol),
         time: nowLabel(),
-        status: 'completed',
+        status: 'pending',
         currency: symbol,
-        native: numeric,
+        native: type === 'deposit' ? numeric : -numeric,
       }
+
       addTransaction(tx)
-      return tx
+
+      // Registra solicitação pendente
+      const request = {
+        requestId,
+        txId,
+        type,
+        symbol,
+        amount: numeric,
+        source: source || null,
+        destination: destination || null,
+        formattedAmount: formatted,
+        userEmail,
+        createdAt: nowLabel(),
+      }
+      setPendingRequests((prev) => [request, ...prev])
+
+      // Envia email mockado ao admin
+      if (type === 'deposit') {
+        sendDepositRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, source, formattedAmount: formatted })
+      } else {
+        sendWithdrawRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, destination, formattedAmount: formatted })
+      }
+
+      return request
     },
-    [addTransaction, updateWalletBalance],
+    [user, addTransaction],
+  )
+
+  // ── approveRequest — aplica saldo e notifica usuário ────────────────────
+
+  const approveRequest = useCallback(
+    (requestId) => {
+      const req = pendingRequests.find((r) => r.requestId === requestId)
+      if (!req) return
+
+      // Aplica o saldo
+      const delta = req.type === 'deposit' ? req.amount : -req.amount
+      updateWalletBalance(req.symbol, delta)
+
+      // Atualiza transação para concluída
+      updateTransaction(req.txId, {
+        status: 'completed',
+        label: req.type === 'deposit'
+          ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+          : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
+      })
+
+      // Remove da lista de pendentes
+      setPendingRequests((prev) => prev.filter((r) => r.requestId !== requestId))
+
+      // Envia email de aprovação ao usuário
+      sendApprovalToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount })
+
+      // Atualiza notificações do usuário em tela
+      setUserNotifications(getUserInbox(req.userEmail))
+    },
+    [pendingRequests, updateWalletBalance, updateTransaction],
+  )
+
+  // ── rejectRequest — cancela e notifica usuário ───────────────────────────
+
+  const rejectRequest = useCallback(
+    (requestId, reason) => {
+      const req = pendingRequests.find((r) => r.requestId === requestId)
+      if (!req) return
+
+      // Atualiza transação para recusada
+      updateTransaction(req.txId, {
+        status: 'rejected',
+        label: req.type === 'deposit'
+          ? `Depósito recusado`
+          : `Saque recusado`,
+      })
+
+      // Remove da lista de pendentes
+      setPendingRequests((prev) => prev.filter((r) => r.requestId !== requestId))
+
+      // Envia email de recusa ao usuário
+      sendRejectionToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount, reason })
+
+      // Atualiza notificações do usuário em tela
+      setUserNotifications(getUserInbox(req.userEmail))
+    },
+    [pendingRequests, updateTransaction],
+  )
+
+  // ── Manter notificações sincronizadas com o inbox mockado ────────────────
+
+  const refreshUserNotifications = useCallback(() => {
+    const email = user?.email || 'cliente@oceancapital.com'
+    setUserNotifications(getUserInbox(email))
+  }, [user])
+
+  const dismissNotification = useCallback((msgId) => {
+    const email = user?.email || 'cliente@oceancapital.com'
+    markUserNotificationRead(email, msgId)
+    setUserNotifications((prev) => prev.filter((n) => n.id !== msgId))
+  }, [user])
+
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Manter compatibilidade: deposit/withdraw legados redirecionam para submitRequest
+  const deposit = useCallback(
+    ({ symbol, amount, source }) => submitRequest({ type: 'deposit', symbol, amount, source }),
+    [submitRequest],
   )
 
   const withdraw = useCallback(
-    ({ symbol, amount, destination }) => {
-      const numeric = Number(amount) || 0
-      if (numeric <= 0) return null
-      updateWalletBalance(symbol, -numeric)
-      const tx = {
-        id: `tx-${Date.now()}`,
-        type: 'send',
-        label: `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'}`,
-        from: destination || (symbol === 'BRL' ? 'Saída via PIX' : 'Transferência internacional'),
-        amount: formatSigned(-numeric, symbol),
-        time: nowLabel(),
-        status: 'completed',
-        currency: symbol,
-        native: -numeric,
-      }
-      addTransaction(tx)
-      return tx
-    },
-    [addTransaction, updateWalletBalance],
+    ({ symbol, amount, destination }) => submitRequest({ type: 'withdraw', symbol, amount, destination }),
+    [submitRequest],
   )
 
   const value = useMemo(
@@ -125,10 +249,30 @@ export function WorkspaceProvider({ children }) {
       exchangeRates: state.exchangeRates,
       securityEvents: state.securityEvents,
       settings: state.settings,
+      // Fluxo de aprovação
+      pendingRequests,
+      userNotifications,
+      submitRequest,
+      approveRequest,
+      rejectRequest,
+      refreshUserNotifications,
+      dismissNotification,
+      // Legado
       deposit,
       withdraw,
     }),
-    [state, deposit, withdraw],
+    [
+      state,
+      pendingRequests,
+      userNotifications,
+      submitRequest,
+      approveRequest,
+      rejectRequest,
+      refreshUserNotifications,
+      dismissNotification,
+      deposit,
+      withdraw,
+    ],
   )
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>

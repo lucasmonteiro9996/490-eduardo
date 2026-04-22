@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { formatCurrency, useWorkspace } from '../context/WorkspaceContext.jsx'
 import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
+import { useToast } from '../components/Toast.jsx'
+import { ADMIN_EMAIL } from '../lib/mockEmailService.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
 import styles from './Dashboard.module.css'
 
@@ -198,7 +200,7 @@ function StatementTable({ transactions, onExportRow, onExportAll, userName }) {
                 <span className={styles.txTime}>{tx.time}</span>
                 <span className={`${styles.txStatus} ${styles[tx.status] ?? ''}`}>
                   <span className={styles.statusDot} />
-                  {tx.status === 'pending' ? 'Pendente' : 'Concluído'}
+                  {tx.status === 'pending' ? 'Aguardando' : tx.status === 'rejected' ? 'Recusado' : 'Concluído'}
                 </span>
                 <span className={`${styles.txAmount} ${tx.amount?.startsWith('+') ? styles.up : styles.down}`}>{tx.amount}</span>
                 <button type="button" className={styles.pdfBtn} onClick={() => onExportRow(tx)}>
@@ -224,7 +226,7 @@ function DashboardTransactions({ transactions }) {
       date: tx.time.includes(',') ? `0${index + 1}/04/2026` : tx.time,
       type: kindMap[tx.type] ?? 'Movimento',
       value: amount,
-      status: tx.status === 'pending' ? 'Em análise' : 'Confirmado',
+      status: tx.status === 'pending' ? 'Em análise' : tx.status === 'rejected' ? 'Recusado' : 'Confirmado',
       note: tx.from || noteMap[tx.type] || 'Sem observação',
       positive: amount.startsWith('+'),
     }
@@ -502,10 +504,79 @@ function SimpleList({ items, primaryKey = 'title', secondaryKey = 'description' 
   )
 }
 
+// ── Notificações do usuário (respostas do admin) ─────────────────────────────
+
+function UserNotifications({ notifications, onDismiss }) {
+  if (!notifications || notifications.length === 0) return null
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>Notificações do administrador</h3>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {notifications.map((n) => {
+          const isApproval = n.type === 'approval'
+          return (
+            <div
+              key={n.id}
+              className={`corner-box`}
+              style={{
+                background: isApproval ? 'rgba(62,207,142,0.07)' : 'rgba(224,92,126,0.07)',
+                border: `1px solid ${isApproval ? 'rgba(62,207,142,0.25)' : 'rgba(224,92,126,0.22)'}`,
+                borderRadius: '12px',
+                padding: '14px 18px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                <span style={{
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  color: isApproval ? 'var(--green)' : 'var(--red)',
+                }}>
+                  {n.subject}
+                </span>
+                <span
+                  style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}
+                  dangerouslySetInnerHTML={{ __html: n.body }}
+                />
+                <span style={{ fontSize: '0.68rem', color: 'rgba(232,225,219,0.38)', marginTop: '2px' }}>
+                  De: {n.from} · {n.sentAt}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onDismiss(n.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(232,225,219,0.4)',
+                  fontSize: '1.1rem',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  lineHeight: 1,
+                }}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function WorkspacePage({ pageKey }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const workspace = useWorkspace()
+  const toast = useToast()
   const [modal, setModal] = useState(null)
   const [localCards, setLocalCards] = useState([])
   const [deletedCardIds, setDeletedCardIds] = useState([])
@@ -526,9 +597,21 @@ export default function WorkspacePage({ pageKey }) {
 
   function handleConfirm(payload) {
     if (modal === 'deposit') {
-      workspace.deposit(payload)
+      workspace.submitRequest({ type: 'deposit', ...payload })
+      toast.push({
+        type: 'info',
+        title: 'Solicitação enviada ao administrador',
+        message: `Um email foi enviado para ${ADMIN_EMAIL}. Aguarde a aprovação.`,
+        duration: 6000,
+      })
     } else if (modal === 'withdraw') {
-      workspace.withdraw(payload)
+      workspace.submitRequest({ type: 'withdraw', ...payload })
+      toast.push({
+        type: 'info',
+        title: 'Solicitação enviada ao administrador',
+        message: `Um email foi enviado para ${ADMIN_EMAIL}. Aguarde a aprovação.`,
+        duration: 6000,
+      })
     }
   }
 
@@ -589,6 +672,10 @@ export default function WorkspacePage({ pageKey }) {
               onDeposit={() => setModal('deposit')}
               onWithdraw={() => setModal('withdraw')}
               onStatement={handleStatement}
+            />
+            <UserNotifications
+              notifications={workspace.userNotifications}
+              onDismiss={workspace.dismissNotification}
             />
             <DashboardTransactions transactions={workspace.transactions.data.slice(0, 6)} />
           </>
