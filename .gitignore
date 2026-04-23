@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 .vite/
+.tmp-logo/
+vite.config.js.timestamp-*.mjs
