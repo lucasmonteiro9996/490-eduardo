@@ -103,6 +103,14 @@ export default function AuthPage() {
           </button>
         </div>
 
+        <button
+          type="button"
+          className={styles.adminEntry}
+          onClick={() => navigate('/admin')}
+        >
+          Entrar na área administrativa
+        </button>
+
         <form className={styles.form} onSubmit={handleSubmit} autoComplete="off">
           {tab === 'register' ? (
             <div className={styles.group}>

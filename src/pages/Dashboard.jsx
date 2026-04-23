@@ -9,7 +9,7 @@ const BALANCES = [
 
 const TRANSACTIONS = [
   { id: 1, type: 'receive', label: 'Depósito em dólar', from: 'Transferência internacional', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
-  { id: 2, type: 'send', label: 'Transferência via PIX', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
+  { id: 2, type: 'send', label: 'Transferência via TED', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
   { id: 3, type: 'exchange', label: 'Câmbio USD → BRL', from: 'Taxa: 0.5%', amount: '+R$3.012,00', time: 'Ontem, 18:44', status: 'completed' },
   { id: 4, type: 'send', label: 'Pagamento de conta de luz', from: 'Energisa SP', amount: '-R$214,50', time: 'Ontem, 09:20', status: 'completed' },
   { id: 5, type: 'receive', label: 'Depósito em real', from: 'Boleto bancário', amount: '+R$1.200,00', time: '13/04, 16:00', status: 'completed' },
@@ -65,12 +65,13 @@ const QUICK_ACTIONS = [
     ),
   },
   {
-    id: 'pix',
-    label: 'PIX',
+    id: 'card-transfer',
+    label: 'Cartão',
     color: '#34d8b6',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14M12 5l7 7-7 7" />
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20" />
       </svg>
     ),
   },

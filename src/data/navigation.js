@@ -6,6 +6,6 @@ export const navItems = [
   { id: 'settings', label: 'Configurações', path: '/dashboard/configuracoes', badge: null },
 ]
 
-export const adminNavItems = [
-  { id: 'admin', label: 'Painel Admin', path: '/dashboard/admin', badge: null },
-]
+// Navegação admin removida da sidebar do cliente.
+// O painel administrativo fica em /admin/* com login próprio.
+export const adminNavItems = []

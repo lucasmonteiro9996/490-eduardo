@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWorkspace } from '../context/WorkspaceContext.jsx'
-import { ADMIN_EMAIL } from '../lib/mockEmailService.js'
+import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { useToast } from '../components/Toast.jsx'
 import styles from './AdminPage.module.css'
 
@@ -30,6 +30,11 @@ function EmailCard({ email, onApprove, onReject }) {
           <span className={styles.emailFrom}>
             De: <strong>{email.from}</strong> → Para: {email.to}
           </span>
+          {email.emailStatus ? (
+            <span className={styles.emailFrom}>
+              Email do admin: <strong>{email.emailStatus === 'sent' ? 'enviado' : email.emailStatus === 'skipped' ? 'configuração pendente' : 'falhou'}</strong>
+            </span>
+          ) : null}
         </div>
         <span className={styles.emailTime}>{email.sentAt}</span>
       </div>
@@ -123,56 +128,70 @@ function EmailCard({ email, onApprove, onReject }) {
 // ── Página principal ──────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const { pendingRequests, approveRequest, rejectRequest } = useWorkspace()
+  const { pendingRequests, resolvedRequests, approveRequest, rejectRequest } = useWorkspace()
   const toast = useToast()
-
-  // Histórico local de e-mails processados para exibição
-  const [resolvedEmails, setResolvedEmails] = useState([])
 
   // Converte pendingRequests em "emails" para exibição (mesma estrutura do service)
   const pendingEmails = pendingRequests.map((req) => ({
     id: `display-${req.requestId}`,
     requestId: req.requestId,
     from: req.userEmail,
-    to: ADMIN_EMAIL,
+    to: ADMIN_NOTIFICATION_EMAIL,
     subject: req.type === 'deposit'
       ? `Solicitação de depósito — ${req.formattedAmount}`
       : `Solicitação de saque — ${req.formattedAmount}`,
     body: req.type === 'deposit'
-      ? `O cliente <strong>${req.userEmail}</strong> solicita um depósito de <strong>${req.formattedAmount}</strong> via <em>${req.source || 'PIX'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`
-      : `O cliente <strong>${req.userEmail}</strong> solicita um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'PIX'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`,
+      ? `O cliente <strong>${req.userEmail}</strong> solicita um depósito de <strong>${req.formattedAmount}</strong> via <em>${req.source || 'TED'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`
+      : `O cliente <strong>${req.userEmail}</strong> solicita um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`,
     type: req.type,
     symbol: req.symbol,
     formattedAmount: req.formattedAmount,
     source: req.source,
     destination: req.destination,
-    sentAt: req.createdAt,
+    sentAt: req.createdAtLabel || req.createdAt,
     status: 'pending',
+    emailStatus: req.emailStatus,
+  }))
+
+  const historyEmails = resolvedRequests.map((req) => ({
+    id: `resolved-${req.requestId}`,
+    requestId: req.requestId,
+    from: req.userEmail,
+    to: ADMIN_NOTIFICATION_EMAIL,
+    subject: req.type === 'deposit'
+      ? `Solicitação de depósito — ${req.formattedAmount}`
+      : `Solicitação de saque — ${req.formattedAmount}`,
+    body: req.type === 'deposit'
+      ? `O cliente <strong>${req.userEmail}</strong> solicitou um depósito de <strong>${req.formattedAmount}</strong> via <em>${req.source || 'TED'}</em>.`
+      : `O cliente <strong>${req.userEmail}</strong> solicitou um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.`,
+    type: req.type,
+    symbol: req.symbol,
+    formattedAmount: req.formattedAmount,
+    source: req.source,
+    destination: req.destination,
+    sentAt: req.resolvedAtLabel || req.createdAtLabel || req.createdAt,
+    status: req.status,
+    emailStatus: req.emailStatus,
   }))
 
   const totalPending = pendingEmails.length
-  const totalApproved = resolvedEmails.filter((e) => e.status === 'approved').length
-  const totalRejected = resolvedEmails.filter((e) => e.status === 'rejected').length
+  const totalApproved = historyEmails.filter((e) => e.status === 'approved').length
+  const totalRejected = historyEmails.filter((e) => e.status === 'rejected').length
 
-  function handleApprove(requestId) {
+  async function handleApprove(requestId) {
     const email = pendingEmails.find((e) => e.requestId === requestId)
-    approveRequest(requestId)
-    if (email) {
-      setResolvedEmails((prev) => [{ ...email, status: 'approved' }, ...prev])
-    }
+    await approveRequest(requestId)
     toast.push({
       type: 'success',
       title: 'Solicitação aprovada',
-      message: `O saldo do cliente foi atualizado e o email de confirmação foi enviado.`,
+      message: email?.emailStatus === 'sent'
+        ? 'O pedido foi aprovado, o saldo foi atualizado e o email já tinha sido enviado ao admin.'
+        : 'O pedido foi aprovado e o saldo do cliente foi atualizado.',
     })
   }
 
-  function handleReject(requestId, reason) {
-    const email = pendingEmails.find((e) => e.requestId === requestId)
-    rejectRequest(requestId, reason)
-    if (email) {
-      setResolvedEmails((prev) => [{ ...email, status: 'rejected' }, ...prev])
-    }
+  async function handleReject(requestId, reason) {
+    await rejectRequest(requestId, reason)
     toast.push({
       type: 'error',
       title: 'Solicitação recusada',
@@ -200,10 +219,10 @@ export default function AdminPage() {
         <div className={`${styles.headerCard} corner-box`}>
           <div className={styles.headerLeft}>
             <span className={styles.headerKicker}>Inbox do administrador</span>
-            <h3 className={styles.headerTitle}>{ADMIN_EMAIL}</h3>
+            <h3 className={styles.headerTitle}>{ADMIN_NOTIFICATION_EMAIL}</h3>
             <p className={styles.headerDescription}>
-              Cada solicitação de depósito ou saque feita pelos clientes chega aqui como um email.
-              O saldo só é alterado após sua aprovação.
+              Cada solicitação de depósito ou saque feita pelos clientes chega aqui na inbox de aprovações.
+              Além disso, o aviso também é enviado para o email do administrador.
             </p>
           </div>
           <div className={styles.headerStats}>
@@ -253,14 +272,14 @@ export default function AdminPage() {
         </div>
 
         {/* Histórico de resolvidas */}
-        {resolvedEmails.length > 0 && (
+        {historyEmails.length > 0 && (
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>Histórico desta sessão</span>
+              <span className={styles.sectionTitle}>Histórico de aprovações</span>
             </div>
-            {resolvedEmails.map((email) => (
+            {historyEmails.map((email) => (
               <EmailCard
-                key={`resolved-${email.id}`}
+                key={email.id}
                 email={email}
                 onApprove={() => {}}
                 onReject={() => {}}

@@ -5,7 +5,7 @@ import { formatCurrency, useWorkspace } from '../context/WorkspaceContext.jsx'
 import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
 import { useToast } from '../components/Toast.jsx'
-import { ADMIN_EMAIL } from '../lib/mockEmailService.js'
+import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
 import styles from './Dashboard.module.css'
 
@@ -90,6 +90,50 @@ function SectionCard({ title, action, children }) {
         {action}
       </div>
       {children}
+    </section>
+  )
+}
+
+function UserRequestStatus({ requests }) {
+  if (!requests?.length) return null
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>Pedidos enviados ao administrador</h3>
+      </div>
+      <div className={styles.walletList}>
+        {requests.map((request) => {
+          const statusLabel = request.status === 'pending'
+            ? 'Aguardando resposta do admin'
+            : request.status === 'approved'
+              ? 'Aceito pelo admin'
+              : 'Recusado pelo admin'
+
+          return (
+            <div key={request.requestId || request.id} className={`${styles.walletItem} corner-box`}>
+              <div className={styles.walletInfo}>
+                <span className={styles.walletAmount}>
+                  {request.type === 'deposit' ? 'Depósito' : 'Saque'} · {request.formattedAmount}
+                </span>
+                <span className={styles.walletName}>
+                  {request.type === 'deposit'
+                    ? `Origem: ${request.source || 'TED'}`
+                    : `Destino: ${request.destination || 'TED'}`}
+                </span>
+              </div>
+              <div className={styles.walletRight}>
+                <span className={styles.walletUsd}>{request.createdAtLabel || request.createdAt}</span>
+                <span className={`${styles.walletChange} ${
+                  request.status === 'approved' ? styles.up : request.status === 'rejected' ? styles.down : ''
+                }`}>
+                  {statusLabel}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </section>
   )
 }
@@ -200,7 +244,7 @@ function StatementTable({ transactions, onExportRow, onExportAll, userName }) {
                 <span className={styles.txTime}>{tx.time}</span>
                 <span className={`${styles.txStatus} ${styles[tx.status] ?? ''}`}>
                   <span className={styles.statusDot} />
-                  {tx.status === 'pending' ? 'Aguardando' : tx.status === 'rejected' ? 'Recusado' : 'Concluído'}
+                  {tx.status === 'pending' ? 'Aguardando resposta do admin' : tx.status === 'rejected' ? 'Recusado' : 'Concluído'}
                 </span>
                 <span className={`${styles.txAmount} ${tx.amount?.startsWith('+') ? styles.up : styles.down}`}>{tx.amount}</span>
                 <button type="button" className={styles.pdfBtn} onClick={() => onExportRow(tx)}>
@@ -226,7 +270,7 @@ function DashboardTransactions({ transactions }) {
       date: tx.time.includes(',') ? `0${index + 1}/04/2026` : tx.time,
       type: kindMap[tx.type] ?? 'Movimento',
       value: amount,
-      status: tx.status === 'pending' ? 'Em análise' : tx.status === 'rejected' ? 'Recusado' : 'Confirmado',
+      status: tx.status === 'pending' ? 'Aguardando resposta do admin' : tx.status === 'rejected' ? 'Recusado' : 'Confirmado',
       note: tx.from || noteMap[tx.type] || 'Sem observação',
       positive: amount.startsWith('+'),
     }
@@ -601,7 +645,7 @@ export default function WorkspacePage({ pageKey }) {
       toast.push({
         type: 'info',
         title: 'Solicitação enviada ao administrador',
-        message: `Um email foi enviado para ${ADMIN_EMAIL}. Aguarde a aprovação.`,
+        message: `O pedido entrou na inbox do admin e a tentativa de email foi direcionada para ${ADMIN_NOTIFICATION_EMAIL}.`,
         duration: 6000,
       })
     } else if (modal === 'withdraw') {
@@ -609,7 +653,7 @@ export default function WorkspacePage({ pageKey }) {
       toast.push({
         type: 'info',
         title: 'Solicitação enviada ao administrador',
-        message: `Um email foi enviado para ${ADMIN_EMAIL}. Aguarde a aprovação.`,
+        message: `O pedido entrou na inbox do admin e a tentativa de email foi direcionada para ${ADMIN_NOTIFICATION_EMAIL}.`,
         duration: 6000,
       })
     }
@@ -673,6 +717,7 @@ export default function WorkspacePage({ pageKey }) {
               onWithdraw={() => setModal('withdraw')}
               onStatement={handleStatement}
             />
+            <UserRequestStatus requests={workspace.userRequests} />
             <UserNotifications
               notifications={workspace.userNotifications}
               onDismiss={workspace.dismissNotification}

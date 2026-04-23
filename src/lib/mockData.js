@@ -5,7 +5,7 @@ export const mockWallets = [
 
 export const mockTransactions = [
   { id: 'tx-1', type: 'receive', label: 'Depósito em dólar', from: 'Transferência internacional', amount: '+$2,500.00', time: 'Hoje, 14:32', status: 'completed' },
-  { id: 'tx-2', type: 'send', label: 'Transferência via PIX', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
+  { id: 'tx-2', type: 'send', label: 'Transferência via TED', from: 'Para: João Silva', amount: '-R$850,00', time: 'Hoje, 11:15', status: 'completed' },
   { id: 'tx-3', type: 'exchange', label: 'Câmbio de USD para BRL', from: 'Taxa: 0,5%', amount: '+R$3.012,00', time: 'Ontem, 18:44', status: 'completed' },
   { id: 'tx-4', type: 'send', label: 'Pagamento do cartão', from: 'Assinatura premium', amount: '-R$214,50', time: 'Ontem, 09:20', status: 'pending' },
   { id: 'tx-5', type: 'receive', label: 'Depósito em real', from: 'Boleto bancário', amount: '+R$1.200,00', time: '15/04, 10:05', status: 'completed' },

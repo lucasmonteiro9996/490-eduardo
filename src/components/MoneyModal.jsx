@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import styles from './MoneyModal.module.css'
 
 const depositSources = {
-  BRL: ['PIX', 'TED', 'Boleto bancário', 'Depósito em dinheiro'],
+  BRL: ['Cartão', 'TED', 'Boleto bancário'],
   USD: ['Transferência internacional (SWIFT)', 'Wire transfer', 'ACH', 'Depósito em conta corrente'],
 }
 
 const withdrawDestinations = {
-  BRL: ['PIX', 'TED', 'Pagamento de boleto', 'Saque em caixa 24h'],
+  BRL: ['Cartão', 'TED', 'Boleto bancário'],
   USD: ['Transferência internacional (SWIFT)', 'Wire transfer', 'ACH', 'Saque em caixa 24h'],
 }
 

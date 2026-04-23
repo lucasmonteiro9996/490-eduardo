@@ -3,7 +3,7 @@
 // Os dados ficam em memória (se-recarregar a página, limpa tudo — propositalmente).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ADMIN_EMAIL = 'admin@oceancapital.com'
+export const ADMIN_EMAIL = 'siteocn@gmail.com'
 
 /** @type {Array<import('../types').MockEmail>} */
 let adminInbox = []

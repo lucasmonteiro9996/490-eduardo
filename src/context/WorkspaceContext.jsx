@@ -1,16 +1,95 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { loadWorkspaceData } from '../lib/firestoreService.js'
 import {
-  sendDepositRequestToAdmin,
-  sendWithdrawRequestToAdmin,
-  sendApprovalToUser,
-  sendRejectionToUser,
+  collection,
+  doc,
+  getDocs,
+  increment,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+} from 'firebase/firestore'
+import { loadWorkspaceData } from '../lib/firestoreService.js'
+import { db, hasFirebaseConfig } from '../lib/firebase.js'
+import {
   getUserInbox,
   markUserNotificationRead,
+  sendApprovalToUser,
+  sendDepositRequestToAdmin,
+  sendRejectionToUser,
+  sendWithdrawRequestToAdmin,
 } from '../lib/mockEmailService.js'
+import { ADMIN_NOTIFICATION_EMAIL, sendAdminApprovalRequestEmail } from '../lib/emailService.js'
 import { useAuth } from './AuthContext.jsx'
 
 const WorkspaceContext = createContext(null)
+
+function nowLabel() {
+  const d = new Date()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `Hoje, ${hh}:${mm}`
+}
+
+function formatDateTime(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return nowLabel()
+  }
+
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function normalizeTimestamp(value) {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value?.toDate === 'function') return value.toDate()
+  if (typeof value?.seconds === 'number') return new Date(value.seconds * 1000)
+  return null
+}
+
+function sortByTimestampDesc(items, field = 'createdAt') {
+  return [...items].sort((a, b) => {
+    const aTime = normalizeTimestamp(a[field])?.getTime() ?? 0
+    const bTime = normalizeTimestamp(b[field])?.getTime() ?? 0
+    return bTime - aTime
+  })
+}
+
+function defaultWalletFor(symbol) {
+  return symbol === 'USD'
+    ? { id: 'usd', symbol: 'USD', name: 'Dólar americano', color: '#4a7fdb', change: '+0,0%', up: true }
+    : { id: 'brl', symbol: 'BRL', name: 'Real brasileiro', color: '#3ecf8e', change: '+0,0%', up: true }
+}
+
+function mapRequestDoc(item) {
+  const createdAt = normalizeTimestamp(item.createdAt)
+  const resolvedAt = normalizeTimestamp(item.resolvedAt)
+
+  return {
+    ...item,
+    createdAtLabel: item.createdAtLabel || formatDateTime(createdAt),
+    resolvedAtLabel: resolvedAt ? formatDateTime(resolvedAt) : item.resolvedAtLabel || null,
+  }
+}
+
+function mapNotificationDoc(item) {
+  const createdAt = normalizeTimestamp(item.createdAt)
+
+  return {
+    ...item,
+    sentAt: item.sentAt || formatDateTime(createdAt),
+  }
+}
 
 export function formatCurrency(amount, symbol) {
   const absValue = Math.abs(Number(amount) || 0)
@@ -26,15 +105,8 @@ export function formatSigned(amount, symbol) {
   return `${sign}${abs.replace(/\s/, '')}`
 }
 
-function nowLabel() {
-  const d = new Date()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `Hoje, ${hh}:${mm}`
-}
-
 export function WorkspaceProvider({ children }) {
-  const { user } = useAuth()
+  const { user, demoMode } = useAuth()
   const [state, setState] = useState({
     loading: true,
     wallets: { data: [], status: 'loading' },
@@ -44,12 +116,11 @@ export function WorkspaceProvider({ children }) {
     securityEvents: { data: [], status: 'loading' },
     settings: { data: [], status: 'loading' },
   })
-
-  // Solicitações pendentes aguardando aprovação do admin
-  const [pendingRequests, setPendingRequests] = useState([])
-
-  // Notificações do usuário (respostas do admin)
+  const [adminRequests, setAdminRequests] = useState([])
+  const [userRequests, setUserRequests] = useState([])
   const [userNotifications, setUserNotifications] = useState([])
+
+  const canUseRealtimeFlow = Boolean(hasFirebaseConfig && db)
 
   useEffect(() => {
     let active = true
@@ -62,7 +133,63 @@ export function WorkspaceProvider({ children }) {
     }
   }, [user?.uid])
 
-  // ── Helpers internos ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!canUseRealtimeFlow) return undefined
+
+    const adminRequestsRef = query(collection(db, 'adminRequests'), orderBy('createdAt', 'desc'))
+
+    return onSnapshot(
+      adminRequestsRef,
+      (snapshot) => {
+        setAdminRequests(snapshot.docs.map((item) => mapRequestDoc({ id: item.id, ...item.data() })))
+      },
+      () => {
+        setAdminRequests([])
+      },
+    )
+  }, [canUseRealtimeFlow])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      setUserRequests([])
+      return undefined
+    }
+
+    const userRequestsRef = query(collection(db, 'adminRequests'), where('userUid', '==', user.uid))
+
+    return onSnapshot(
+      userRequestsRef,
+      (snapshot) => {
+        const rows = snapshot.docs.map((item) => mapRequestDoc({ id: item.id, ...item.data() }))
+        setUserRequests(sortByTimestampDesc(rows))
+      },
+      () => {
+        setUserRequests([])
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      setUserNotifications(user?.email ? getUserInbox(user.email) : [])
+      return undefined
+    }
+
+    const notificationsRef = query(collection(db, 'users', user.uid, 'notifications'), orderBy('createdAt', 'desc'))
+
+    return onSnapshot(
+      notificationsRef,
+      (snapshot) => {
+        const rows = snapshot.docs
+          .map((item) => mapNotificationDoc({ id: item.id, ...item.data() }))
+          .filter((item) => !item.read)
+        setUserNotifications(rows)
+      },
+      () => {
+        setUserNotifications([])
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid, user?.email])
 
   const updateWalletBalance = useCallback((symbol, delta) => {
     setState((prev) => ({
@@ -93,143 +220,290 @@ export function WorkspaceProvider({ children }) {
       ...prev,
       transactions: {
         ...prev.transactions,
-        data: prev.transactions.data.map((tx) =>
-          tx.id === txId ? { ...tx, ...patch } : tx,
-        ),
+        data: prev.transactions.data.map((tx) => (tx.id === txId ? { ...tx, ...patch } : tx)),
       },
     }))
   }, [])
 
-  // ── submitRequest — cria pendência sem mexer no saldo ────────────────────
-
   const submitRequest = useCallback(
-    ({ type, symbol, amount, source, destination }) => {
+    async ({ type, symbol, amount, source, destination }) => {
       const numeric = Number(amount) || 0
       if (numeric <= 0) return null
 
       const requestId = `req-${Date.now()}`
       const txId = `tx-${Date.now()}`
       const formatted = formatCurrency(numeric, symbol)
+      const createdAtLabel = nowLabel()
       const userEmail = user?.email || 'cliente@oceancapital.com'
-
-      // Transação pendente (sem saldo mudado ainda)
+      const userName = user?.displayName || userEmail || 'Cliente Ocean Capital'
+      const wallet = state.wallets.data.find((item) => item.symbol === symbol) ?? defaultWalletFor(symbol)
       const tx = {
         id: txId,
         type: type === 'deposit' ? 'receive' : 'send',
         label: type === 'deposit'
-          ? `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando`
-          : `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando`,
-        from: source || destination || (symbol === 'BRL' ? 'PIX' : 'Transferência'),
+          ? `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`
+          : `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`,
+        from: source || destination || (symbol === 'BRL' ? 'TED' : 'Transferência'),
         amount: type === 'deposit' ? formatSigned(numeric, symbol) : formatSigned(-numeric, symbol),
-        time: nowLabel(),
+        time: createdAtLabel,
         status: 'pending',
         currency: symbol,
         native: type === 'deposit' ? numeric : -numeric,
+        requestId,
       }
 
       addTransaction(tx)
 
-      // Registra solicitação pendente
-      const request = {
+      const requestPayload = {
         requestId,
         txId,
+        walletId: wallet.id || symbol.toLowerCase(),
         type,
         symbol,
         amount: numeric,
         source: source || null,
         destination: destination || null,
         formattedAmount: formatted,
+        userUid: user?.uid || null,
         userEmail,
-        createdAt: nowLabel(),
-      }
-      setPendingRequests((prev) => [request, ...prev])
-
-      // Envia email mockado ao admin
-      if (type === 'deposit') {
-        sendDepositRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, source, formattedAmount: formatted })
-      } else {
-        sendWithdrawRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, destination, formattedAmount: formatted })
+        userName,
+        status: 'pending',
+        createdAtLabel,
       }
 
-      return request
+      if (!canUseRealtimeFlow || !user?.uid || demoMode) {
+        setAdminRequests((prev) => [requestPayload, ...prev])
+        setUserRequests((prev) => [requestPayload, ...prev])
+
+        if (type === 'deposit') {
+          sendDepositRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, source, formattedAmount: formatted })
+        } else {
+          sendWithdrawRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, destination, formattedAmount: formatted })
+        }
+
+        return requestPayload
+      }
+
+      const txRef = doc(db, 'users', user.uid, 'transactions', txId)
+      const requestRef = doc(collection(db, 'adminRequests'))
+
+      await setDoc(txRef, {
+        ...tx,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      })
+
+      await setDoc(requestRef, {
+        ...requestPayload,
+        requestId: requestRef.id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        emailStatus: 'processing',
+        emailProvider: 'emailjs',
+        adminEmail: ADMIN_NOTIFICATION_EMAIL,
+      })
+
+      const emailResult = await sendAdminApprovalRequestEmail({
+        requestId: requestRef.id,
+        userName,
+        userEmail,
+        type,
+        symbol,
+        formattedAmount: formatted,
+        source,
+        destination,
+        createdAtLabel,
+      })
+
+      await updateDoc(requestRef, {
+        emailStatus: emailResult.ok ? 'sent' : emailResult.skipped ? 'skipped' : 'failed',
+        emailError: emailResult.ok ? null : emailResult.error || null,
+        updatedAt: serverTimestamp(),
+      })
+
+      return {
+        ...requestPayload,
+        requestId: requestRef.id,
+        emailStatus: emailResult.ok ? 'sent' : emailResult.skipped ? 'skipped' : 'failed',
+      }
     },
-    [user, addTransaction],
+    [addTransaction, canUseRealtimeFlow, demoMode, state.wallets.data, user],
   )
 
-  // ── approveRequest — aplica saldo e notifica usuário ────────────────────
-
   const approveRequest = useCallback(
-    (requestId) => {
-      const req = pendingRequests.find((r) => r.requestId === requestId)
+    async (requestId) => {
+      const req = adminRequests.find((item) => item.requestId === requestId || item.id === requestId)
       if (!req) return
 
-      // Aplica o saldo
-      const delta = req.type === 'deposit' ? req.amount : -req.amount
-      updateWalletBalance(req.symbol, delta)
+      const resolvedAtLabel = nowLabel()
 
-      // Atualiza transação para concluída
+      if (!canUseRealtimeFlow || !req.userUid || demoMode) {
+        const delta = req.type === 'deposit' ? req.amount : -req.amount
+        updateWalletBalance(req.symbol, delta)
+        updateTransaction(req.txId, {
+          status: 'completed',
+          label: req.type === 'deposit'
+            ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+            : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
+        })
+        setAdminRequests((prev) => prev.map((item) => (
+          item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
+        )))
+        setUserRequests((prev) => prev.map((item) => (
+          item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
+        )))
+        sendApprovalToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount })
+        setUserNotifications(getUserInbox(req.userEmail))
+        return
+      }
+
+      const walletModel = state.wallets.data.find((item) => item.symbol === req.symbol) ?? defaultWalletFor(req.symbol)
+      const delta = req.type === 'deposit' ? req.amount : -req.amount
+      const requestDocId = req.id || req.requestId
+      const batch = writeBatch(db)
+      const requestRef = doc(db, 'adminRequests', requestDocId)
+      const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
+      const walletRef = doc(db, 'users', req.userUid, 'wallets', req.walletId || walletModel.id)
+      const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+
+      batch.update(requestRef, {
+        status: 'approved',
+        resolvedAt: serverTimestamp(),
+        resolvedAtLabel,
+        updatedAt: serverTimestamp(),
+      })
+
+      batch.set(walletRef, {
+        id: req.walletId || walletModel.id,
+        symbol: req.symbol,
+        name: walletModel.name,
+        native: increment(delta),
+        color: walletModel.color,
+        change: walletModel.change || '+0,0%',
+        up: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+
+      batch.set(txRef, {
+        status: 'completed',
+        label: req.type === 'deposit'
+          ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+          : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
+        resolvedAtLabel,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+
+      batch.set(notificationRef, {
+        type: 'approval',
+        subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi aceito`,
+        body: `O administrador aprovou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+        from: ADMIN_NOTIFICATION_EMAIL,
+        read: false,
+        createdAt: serverTimestamp(),
+        sentAt: resolvedAtLabel,
+      })
+
+      await batch.commit()
+
       updateTransaction(req.txId, {
         status: 'completed',
         label: req.type === 'deposit'
           ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
           : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
       })
-
-      // Remove da lista de pendentes
-      setPendingRequests((prev) => prev.filter((r) => r.requestId !== requestId))
-
-      // Envia email de aprovação ao usuário
-      sendApprovalToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount })
-
-      // Atualiza notificações do usuário em tela
-      setUserNotifications(getUserInbox(req.userEmail))
     },
-    [pendingRequests, updateWalletBalance, updateTransaction],
+    [adminRequests, canUseRealtimeFlow, demoMode, state.wallets.data, updateTransaction, updateWalletBalance],
   )
-
-  // ── rejectRequest — cancela e notifica usuário ───────────────────────────
 
   const rejectRequest = useCallback(
-    (requestId, reason) => {
-      const req = pendingRequests.find((r) => r.requestId === requestId)
+    async (requestId, reason) => {
+      const req = adminRequests.find((item) => item.requestId === requestId || item.id === requestId)
       if (!req) return
 
-      // Atualiza transação para recusada
-      updateTransaction(req.txId, {
+      const resolvedAtLabel = nowLabel()
+      const finalReason = reason?.trim() || null
+
+      if (!canUseRealtimeFlow || !req.userUid || demoMode) {
+        updateTransaction(req.txId, {
+          status: 'rejected',
+          label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
+        })
+        setAdminRequests((prev) => prev.map((item) => (
+          item.requestId === requestId ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason } : item
+        )))
+        setUserRequests((prev) => prev.map((item) => (
+          item.requestId === requestId ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason } : item
+        )))
+        sendRejectionToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount, reason: finalReason })
+        setUserNotifications(getUserInbox(req.userEmail))
+        return
+      }
+
+      const requestDocId = req.id || req.requestId
+      const batch = writeBatch(db)
+      const requestRef = doc(db, 'adminRequests', requestDocId)
+      const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
+      const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+
+      batch.update(requestRef, {
         status: 'rejected',
-        label: req.type === 'deposit'
-          ? `Depósito recusado`
-          : `Saque recusado`,
+        resolvedAt: serverTimestamp(),
+        resolvedAtLabel,
+        resolutionReason: finalReason,
+        updatedAt: serverTimestamp(),
       })
 
-      // Remove da lista de pendentes
-      setPendingRequests((prev) => prev.filter((r) => r.requestId !== requestId))
+      batch.set(txRef, {
+        status: 'rejected',
+        label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
+        resolutionReason: finalReason,
+        resolvedAtLabel,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
 
-      // Envia email de recusa ao usuário
-      sendRejectionToUser({ userEmail: req.userEmail, type: req.type, formattedAmount: req.formattedAmount, reason })
+      batch.set(notificationRef, {
+        type: 'rejection',
+        subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi recusado`,
+        body: finalReason
+          ? `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.<br/><br/>Motivo: ${finalReason}`
+          : `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+        from: ADMIN_NOTIFICATION_EMAIL,
+        read: false,
+        createdAt: serverTimestamp(),
+        sentAt: resolvedAtLabel,
+      })
 
-      // Atualiza notificações do usuário em tela
-      setUserNotifications(getUserInbox(req.userEmail))
+      await batch.commit()
+
+      updateTransaction(req.txId, {
+        status: 'rejected',
+        label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
+      })
     },
-    [pendingRequests, updateTransaction],
+    [adminRequests, canUseRealtimeFlow, demoMode, updateTransaction],
   )
 
-  // ── Manter notificações sincronizadas com o inbox mockado ────────────────
-
   const refreshUserNotifications = useCallback(() => {
+    if (canUseRealtimeFlow) return
     const email = user?.email || 'cliente@oceancapital.com'
     setUserNotifications(getUserInbox(email))
-  }, [user])
+  }, [canUseRealtimeFlow, user?.email])
 
-  const dismissNotification = useCallback((msgId) => {
-    const email = user?.email || 'cliente@oceancapital.com'
-    markUserNotificationRead(email, msgId)
-    setUserNotifications((prev) => prev.filter((n) => n.id !== msgId))
-  }, [user])
+  const dismissNotification = useCallback(async (msgId) => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      const email = user?.email || 'cliente@oceancapital.com'
+      markUserNotificationRead(email, msgId)
+      setUserNotifications((prev) => prev.filter((item) => item.id !== msgId))
+      return
+    }
 
-  // ─────────────────────────────────────────────────────────────────────────
+    const notificationRef = doc(db, 'users', user.uid, 'notifications', msgId)
+    await updateDoc(notificationRef, {
+      read: true,
+      updatedAt: serverTimestamp(),
+    })
+  }, [canUseRealtimeFlow, user?.email, user?.uid])
 
-  // Manter compatibilidade: deposit/withdraw legados redirecionam para submitRequest
   const deposit = useCallback(
     ({ symbol, amount, source }) => submitRequest({ type: 'deposit', symbol, amount, source }),
     [submitRequest],
@@ -238,6 +512,16 @@ export function WorkspaceProvider({ children }) {
   const withdraw = useCallback(
     ({ symbol, amount, destination }) => submitRequest({ type: 'withdraw', symbol, amount, destination }),
     [submitRequest],
+  )
+
+  const pendingRequests = useMemo(
+    () => adminRequests.filter((item) => item.status === 'pending'),
+    [adminRequests],
+  )
+
+  const resolvedRequests = useMemo(
+    () => adminRequests.filter((item) => item.status !== 'pending'),
+    [adminRequests],
   )
 
   const value = useMemo(
@@ -249,21 +533,23 @@ export function WorkspaceProvider({ children }) {
       exchangeRates: state.exchangeRates,
       securityEvents: state.securityEvents,
       settings: state.settings,
-      // Fluxo de aprovação
       pendingRequests,
+      resolvedRequests,
+      userRequests,
       userNotifications,
       submitRequest,
       approveRequest,
       rejectRequest,
       refreshUserNotifications,
       dismissNotification,
-      // Legado
       deposit,
       withdraw,
     }),
     [
       state,
       pendingRequests,
+      resolvedRequests,
+      userRequests,
       userNotifications,
       submitRequest,
       approveRequest,

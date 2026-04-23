@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { useWorkspace } from '../context/WorkspaceContext.jsx'
-import { navItems, adminNavItems } from '../data/navigation.js'
+import { navItems } from '../data/navigation.js'
 import styles from './Sidebar.module.css'
 
 function Icon({ id }) {
@@ -49,6 +48,14 @@ function Icon({ id }) {
         <path d="m9 16 2 2 4-4" />
       </svg>
     ),
+    clients: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
   }
 
   return icons[id] ?? icons.home
@@ -57,9 +64,7 @@ function Icon({ id }) {
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { user } = useAuth()
-  const { pendingRequests } = useWorkspace()
   const initials = (user?.displayName || user?.email || 'OC').slice(0, 2).toUpperCase()
-  const pendingCount = pendingRequests.length
 
   return (
     <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
@@ -103,42 +108,7 @@ export default function Sidebar() {
           </NavLink>
         ))}
 
-        {/* Divisor Admin */}
-        {!collapsed && (
-          <div style={{
-            margin: '10px 12px 6px',
-            fontSize: '0.6rem',
-            fontWeight: 600,
-            color: 'rgba(232,225,219,0.28)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}>
-            Administração
-          </div>
-        )}
-
-        {adminNavItems.map((item) => {
-          const badge = item.id === 'admin' ? pendingCount : item.badge
-          return (
-            <NavLink
-              key={item.id}
-              to={item.path}
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-              title={collapsed ? item.label : ''}
-            >
-              <span className={styles.navIcon}>
-                <Icon id={item.id} />
-              </span>
-              {!collapsed ? <span className={styles.navLabel}>{item.label}</span> : null}
-              {!collapsed && badge > 0 ? (
-                <span className={styles.badge} style={{ background: 'rgba(245,200,66,0.18)', color: '#f5c842' }}>
-                  {badge}
-                </span>
-              ) : null}
-              {collapsed && badge > 0 ? <span className={styles.badgeDot} /> : null}
-            </NavLink>
-          )
-        })}
+        {/* Seção admin removida — o painel admin tem login e sidebar próprios em /admin */}
       </nav>
 
       {!collapsed ? (
