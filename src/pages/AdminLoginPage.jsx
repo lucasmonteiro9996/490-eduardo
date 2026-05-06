@@ -4,13 +4,17 @@ import { useAdminAuth } from '../context/AdminAuthContext.jsx'
 import styles from './AdminLoginPage.module.css'
 
 export default function AdminLoginPage() {
-  const { isAdmin, login } = useAdminAuth()
+  const { isAdmin, login, loading } = useAdminAuth()
   const navigate = useNavigate()
 
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [shake, setShake] = useState(false)
+
+  if (loading) {
+    return <div className={styles.bg} style={{ display: 'grid', placeItems: 'center', color: 'var(--light-main)' }}>Validando sessão administrativa...</div>
+  }
 
   if (isAdmin) {
     return <Navigate to="/admin/inbox" replace />
@@ -28,7 +32,7 @@ export default function AdminLoginPage() {
     // Pequeno delay para parecer que está validando
     await new Promise((r) => setTimeout(r, 520))
 
-    const result = login(email, password)
+    const result = await login(email, password)
     setPending(false)
 
     if (result.ok) {

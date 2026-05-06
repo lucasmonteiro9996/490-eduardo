@@ -16,7 +16,11 @@ function AdminShellInner() {
 }
 
 export default function AdminShell() {
-  const { isAdmin } = useAdminAuth()
+  const { isAdmin, loading } = useAdminAuth()
+
+  if (loading) {
+    return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: 'var(--light-main)' }}>Carregando painel admin...</div>
+  }
 
   if (!isAdmin) {
     return <Navigate to="/admin" replace />

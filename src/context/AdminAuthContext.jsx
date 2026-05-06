@@ -1,13 +1,18 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { auth, hasFirebaseConfig } from '../lib/firebase.js'
 
-// ── Credenciais do administrador (mock) ───────────────────────────────────
-// Em produção isso viria de um backend seguro com JWT.
 const ADMIN_CREDENTIALS = {
   email: 'siteocn@gmail.com',
   password: 'admin@2024',
 }
 
+const ADMIN_ALLOWLIST = [ADMIN_CREDENTIALS.email]
 const SESSION_KEY = 'oc_admin_session'
+
+function isAdminEmail(email) {
+  return ADMIN_ALLOWLIST.includes(String(email || '').trim().toLowerCase())
+}
 
 function loadSession() {
   try {
@@ -30,37 +35,98 @@ function clearSession() {
   } catch {}
 }
 
+function buildSession(email, displayName) {
+  return {
+    email,
+    name: displayName || 'Administrador',
+    loginAt: new Date().toISOString(),
+  }
+}
+
 const AdminAuthContext = createContext(null)
 
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(() => loadSession())
+  const [loading, setLoading] = useState(Boolean(hasFirebaseConfig && auth))
+
+  useEffect(() => {
+    if (!hasFirebaseConfig || !auth) {
+      setLoading(false)
+      return undefined
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser?.email && isAdminEmail(currentUser.email)) {
+        const session = buildSession(currentUser.email, currentUser.displayName)
+        saveSession(session)
+        setAdmin(session)
+      } else if (!currentUser) {
+        clearSession()
+        setAdmin(null)
+      }
+      setLoading(false)
+    })
+
+    return unsubscribe
+  }, [])
 
   const value = useMemo(() => ({
     admin,
+    loading,
     isAdmin: Boolean(admin),
 
-    login(email, password) {
+    async login(email, password) {
+      const normalizedEmail = String(email || '').trim().toLowerCase()
+
+      if (!isAdminEmail(normalizedEmail)) {
+        return { ok: false, error: 'Este usuário não possui permissão para acessar o painel admin.' }
+      }
+
+      if (hasFirebaseConfig && auth) {
+        try {
+          const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password)
+
+          if (!isAdminEmail(credential.user.email)) {
+            await signOut(auth)
+            return { ok: false, error: 'Este usuário não possui permissão para acessar o painel admin.' }
+          }
+
+          const session = buildSession(credential.user.email, credential.user.displayName)
+          saveSession(session)
+          setAdmin(session)
+          return { ok: true }
+        } catch (error) {
+          const code = String(error?.code || '')
+          if (!code.includes('auth/')) {
+            return { ok: false, error: 'Não foi possível validar o acesso admin no Firebase agora.' }
+          }
+
+          return { ok: false, error: 'Credenciais inválidas. Verifique e-mail e senha.' }
+        }
+      }
+
       if (
-        email.trim().toLowerCase() === ADMIN_CREDENTIALS.email &&
+        normalizedEmail === ADMIN_CREDENTIALS.email &&
         password === ADMIN_CREDENTIALS.password
       ) {
-        const session = {
-          email: ADMIN_CREDENTIALS.email,
-          name: 'Administrador',
-          loginAt: new Date().toISOString(),
-        }
+        const session = buildSession(ADMIN_CREDENTIALS.email, 'Administrador')
         saveSession(session)
         setAdmin(session)
         return { ok: true }
       }
+
       return { ok: false, error: 'Credenciais inválidas. Verifique e-mail e senha.' }
     },
 
-    logout() {
+    async logout() {
       clearSession()
       setAdmin(null)
+
+      if (auth && isAdminEmail(auth.currentUser?.email)) {
+        await signOut(auth)
+      }
     },
-  }), [admin])
+  }), [admin, loading])
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>
 }

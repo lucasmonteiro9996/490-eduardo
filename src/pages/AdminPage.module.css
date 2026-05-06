@@ -143,6 +143,393 @@
   letter-spacing: 0.06em;
 }
 
+/* Analytics */
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.filterPanel {
+  background: linear-gradient(180deg, rgba(8, 22, 52, 0.95), rgba(4, 14, 36, 0.95));
+  border: 1px solid rgba(74, 127, 219, 0.14);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.filterPanelTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.filterPanelTitle {
+  display: block;
+  margin-top: 4px;
+  color: var(--light-main);
+  font-size: 0.98rem;
+}
+
+.filterPanelHint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterField span {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.filterField input,
+.filterField select {
+  width: 100%;
+  height: 42px;
+  background: rgba(1, 24, 66, 0.76);
+  border: 1px solid rgba(61, 86, 117, 0.4);
+  border-radius: 10px;
+  padding: 0 14px;
+  color: var(--light-main);
+  outline: none;
+}
+
+.filterField input::placeholder {
+  color: var(--text-muted);
+}
+
+.filterField input:focus,
+.filterField select:focus {
+  border-color: rgba(74, 127, 219, 0.72);
+}
+
+.segmentedControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segmentBtn {
+  flex: 1;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(61, 86, 117, 0.38);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.segmentBtnActive {
+  background: rgba(74, 127, 219, 0.18);
+  color: var(--light-main);
+  border-color: rgba(74, 127, 219, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.analyticsCard {
+  background:
+    linear-gradient(180deg, rgba(9, 26, 58, 0.94), rgba(4, 14, 36, 0.94));
+  border: 1px solid rgba(74, 127, 219, 0.14);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.analyticsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.analyticsKicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7ab6ff;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.analyticsValue {
+  font-family: 'Walkway Expand', 'Inter', sans-serif;
+  font-size: 1rem;
+  color: var(--light-main);
+  text-align: right;
+}
+
+.analyticsText {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.chartList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chartRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chartRowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.74rem;
+  color: var(--text-soft);
+}
+
+.chartRowHead strong {
+  color: var(--light-main);
+  font-size: 0.78rem;
+}
+
+.chartTrack {
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.chartFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2bb7d8, #4a7fdb);
+  box-shadow: 0 0 18px rgba(74, 127, 219, 0.22);
+}
+
+.analyticsFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metricBox {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metricBox span {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metricBox strong {
+  color: var(--light-main);
+  font-size: 0.92rem;
+}
+
+.overviewWrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.trendCard {
+  background:
+    linear-gradient(180deg, rgba(9, 26, 58, 0.94), rgba(4, 14, 36, 0.94));
+  border: 1px solid rgba(74, 127, 219, 0.14);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trendHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trendTitle {
+  display: block;
+  margin-top: 4px;
+  color: var(--light-main);
+  font-size: 0.98rem;
+}
+
+.trendHint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.trendSvg {
+  width: 100%;
+  height: 200px;
+}
+
+.trendGridLine {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.depositArea {
+  fill: rgba(62, 207, 142, 0.12);
+}
+
+.withdrawArea {
+  fill: rgba(224, 92, 126, 0.1);
+}
+
+.depositLine,
+.withdrawLine {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.depositLine { stroke: var(--green); }
+.withdrawLine { stroke: var(--red); }
+.depositPoint { fill: var(--green); }
+.withdrawPoint { fill: var(--red); }
+
+.trendLabels {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.trendLabels span {
+  text-align: center;
+}
+
+.trendLegend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--text-soft);
+}
+
+.trendLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.donutWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+}
+
+.donutChart {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.donutHole {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(5, 17, 42, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--light-main);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.donutHole strong {
+  font-size: 1rem;
+}
+
+.donutHole span {
+  font-size: 0.63rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.legendList {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.legendItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
+.legendItem strong {
+  color: var(--light-main);
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legendApproved { background: var(--green); }
+.legendPending { background: var(--yellow); }
+.legendRejected { background: var(--red); }
+
 /* ── Inbox section ── */
 .section {
   display: flex;
@@ -448,4 +835,64 @@
   color: var(--text-muted);
   max-width: 320px;
   line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .filterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar,
+  .content {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .headerCard {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .headerStats {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .emailAmount,
+  .emailActions,
+  .rejectForm,
+  .overviewWrap,
+  .filterPanelTop,
+  .trendHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterGrid,
+  .metricGrid,
+  .trendLabels {
+    grid-template-columns: 1fr;
+  }
+
+  .segmentedControl {
+    width: 100%;
+  }
+
+  .btnActions {
+    width: 100%;
+  }
+
+  .btnApprove,
+  .btnReject,
+  .btnConfirmReject,
+  .btnCancelReject {
+    justify-content: center;
+    flex: 1;
+  }
 }
