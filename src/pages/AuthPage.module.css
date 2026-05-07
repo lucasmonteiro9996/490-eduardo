@@ -235,11 +235,95 @@
   font-size: 0.78rem;
   color: rgba(74, 127, 219, 0.8);
   text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
   transition: color 0.2s;
 }
 
 .forgotLink:hover {
   color: #5d91e5;
+}
+
+/* Forgot mode header */
+.forgotHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.forgotKicker {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(74, 127, 219, 0.85);
+}
+
+.forgotDesc {
+  font-size: 0.82rem;
+  color: rgba(232, 225, 219, 0.6);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Forgot success state */
+.forgotSuccess {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 2px;
+  text-align: center;
+}
+
+.forgotSuccessIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(62, 207, 142, 0.12);
+  border: 1px solid rgba(62, 207, 142, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3ecf8e;
+}
+
+.forgotSuccessTitle {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #3ecf8e;
+}
+
+.forgotSuccessDesc {
+  font-size: 0.78rem;
+  color: rgba(232, 225, 219, 0.55);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 26ch;
+}
+
+/* Back button (reuses adminEntry visual, no bottom margin) */
+.backBtn {
+  width: 100%;
+  border: 1px solid rgba(61, 86, 117, 0.42);
+  border-radius: 10px;
+  background: rgba(1, 24, 66, 0.42);
+  color: rgba(232, 225, 219, 0.82);
+  padding: 11px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.backBtn:hover {
+  border-color: rgba(74, 127, 219, 0.38);
+  background: rgba(74, 127, 219, 0.08);
+  color: #fff;
 }
 
 /* Submit button */

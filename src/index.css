@@ -27,10 +27,13 @@
   --light-main: #E8E1DB;
   --blue-dark: #011842;
   --blue-deeper: #01122f;
+  --blue-void: #020a1b;
   --accent: #4a7fdb;
   --accent-hover: #5d91e5;
   --accent-glow: rgba(74, 127, 219, 0.25);
+  --accent-cyan: #2ebce6;
   --panel: rgba(61, 86, 117, 0.18);
+  --panel-strong: rgba(10, 21, 44, 0.88);
   --panel-border: rgba(232, 225, 219, 0.08);
   --panel-border-hover: rgba(74, 127, 219, 0.35);
   --input-bg: rgba(1, 24, 66, 0.82);
@@ -38,6 +41,7 @@
   --text-muted: rgba(232, 225, 219, 0.38);
   --corner-color: rgba(61, 86, 117, 0.9);
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 18px 48px rgba(0, 0, 0, 0.28);
   --sidebar-width: 240px;
 
   /* Status colors */
@@ -53,11 +57,14 @@ html, body, #root {
 body {
   font-family: 'Inter', sans-serif;
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(74, 127, 219, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(61, 86, 117, 0.15) 0%, transparent 50%),
-    linear-gradient(180deg, var(--blue-deeper) 0%, var(--blue-dark) 100%);
+    radial-gradient(circle at 16% 12%, rgba(74, 127, 219, 0.2) 0%, transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(46, 188, 230, 0.12) 0%, transparent 18%),
+    radial-gradient(circle at 84% 88%, rgba(61, 86, 117, 0.2) 0%, transparent 24%),
+    linear-gradient(180deg, var(--blue-void) 0%, var(--blue-deeper) 36%, var(--blue-dark) 100%);
   color: var(--light-main);
   min-height: 100vh;
+  background-attachment: fixed;
+  letter-spacing: 0.01em;
 }
 
 button {
@@ -111,4 +118,9 @@ input, select, textarea {
   border-left: 0;
   border-top: 0;
   border-radius: 0 0 8px 0;
+}
+
+::selection {
+  background: rgba(74, 127, 219, 0.28);
+  color: #fff;
 }

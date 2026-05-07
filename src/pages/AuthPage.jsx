@@ -146,186 +146,223 @@ export default function AuthPage() {
         </button>
 
         <form className={styles.form} onSubmit={handleSubmit} autoComplete="off">
-          {tab === 'register' ? (
-            <div className={styles.group}>
-              <label htmlFor="name">Nome completo</label>
-              <div className={`${styles.field} corner-box`}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+
+          {/* ── Forgot mode: success state ─────────────────────────────── */}
+          {forgotSent ? (
+            <>
+              <div className={styles.forgotSuccess}>
+                <div className={styles.forgotSuccessIcon}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
                   </svg>
-                </span>
-                <input id="name" name="name" type="text" placeholder="Seu nome completo" required />
+                </div>
+                <span className={styles.forgotSuccessTitle}>Link enviado!</span>
+                <p className={styles.forgotSuccessDesc}>
+                  Verifique sua caixa de entrada e a pasta de spam para redefinir sua senha.
+                </p>
               </div>
-            </div>
-          ) : null}
-
-          <div className={styles.group}>
-            <label htmlFor="email">E-mail</label>
-            <div className={`${styles.field} corner-box`}>
-              <span className={styles.fieldIcon}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="4" width="20" height="16" rx="2" />
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                </svg>
-              </span>
-              <input id="email" name="login_email" type="email" placeholder="seu@email.com" autoComplete="off" required />
-            </div>
-          </div>
-
-          {tab === 'register' ? (
-            <div className={styles.group}>
-              <label htmlFor="cpf">CPF</label>
-              <div className={`${styles.field} corner-box`}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="16" rx="2" />
-                    <path d="M7 9h10M7 13h6" />
-                  </svg>
-                </span>
-                <input
-                  id="cpf"
-                  name="cpf"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="000.000.000-00"
-                  maxLength={14}
-                  required
-                  onChange={(event) => { event.target.value = formatCpf(event.target.value) }}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {!forgotMode && (
-            <div className={styles.group}>
-              <label htmlFor="senha">Senha</label>
-              <div className={`${styles.field} corner-box`}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </span>
-                <input
-                  id="senha"
-                  name="access_key"
-                  type={showPass ? 'text' : 'password'}
-                  placeholder="********"
-                  autoComplete={tab === 'login' ? 'off' : 'new-password'}
-                  required={!forgotMode}
-                />
-                <button type="button" className={styles.eyeBtn} onClick={() => setShowPass((value) => !value)}>
-                  {showPass ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {tab === 'login' && !forgotMode && (
-            <div className={styles.forgotRow}>
               <button
                 type="button"
-                className={styles.forgotLink}
-                onClick={() => { setForgotMode(true); setErrorMessage('') }}
+                className={styles.backBtn}
+                onClick={() => { setForgotMode(false); setForgotSent(false); setErrorMessage('') }}
               >
-                Esqueci minha senha
+                ← Voltar ao login
               </button>
-            </div>
-          )}
+            </>
+          ) : (
+            <>
+              {/* ── Forgot mode: form ──────────────────────────────────── */}
+              {forgotMode && (
+                <div className={styles.forgotHeader}>
+                  <span className={styles.forgotKicker}>Redefinição de senha</span>
+                  <p className={styles.forgotDesc}>
+                    Informe seu e-mail e enviaremos um link para criar uma nova senha.
+                  </p>
+                </div>
+              )}
 
-          {tab === 'register' ? (
-            <div className={styles.group}>
-              <label htmlFor="confirmSenha">Confirmar Senha</label>
-              <div className={`${styles.field} corner-box`}>
-                <span className={styles.fieldIcon}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </span>
-                <input
-                  id="confirmSenha"
-                  name="confirm_access_key"
-                  type={showConfirm ? 'text' : 'password'}
-                  placeholder="********"
-                  autoComplete="new-password"
-                  required
-                />
-                <button type="button" className={styles.eyeBtn} onClick={() => setShowConfirm((value) => !value)}>
-                  {showConfirm ? (
+              {/* ── Register-only: name ────────────────────────────────── */}
+              {tab === 'register' && !forgotMode ? (
+                <div className={styles.group}>
+                  <label htmlFor="name">Nome completo</label>
+                  <div className={`${styles.field} corner-box`}>
+                    <span className={styles.fieldIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </span>
+                    <input id="name" name="name" type="text" placeholder="Seu nome completo" required />
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ── Email (always visible) ─────────────────────────────── */}
+              <div className={styles.group}>
+                <label htmlFor="email">E-mail</label>
+                <div className={`${styles.field} corner-box`}>
+                  <span className={styles.fieldIcon}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+                  </span>
+                  <input id="email" name="login_email" type="email" placeholder="seu@email.com" autoComplete="off" required />
+                </div>
               </div>
-            </div>
-          ) : null}
 
-          {!hasFirebaseConfig ? (
-            <p className={styles.termsText}>
-              Firebase não configurado. A autenticação e o Firestore entram em modo de demonstração até que as variáveis `VITE_FIREBASE_*` sejam preenchidas.
-            </p>
-          ) : null}
+              {/* ── Register-only: CPF ─────────────────────────────────── */}
+              {tab === 'register' && !forgotMode ? (
+                <div className={styles.group}>
+                  <label htmlFor="cpf">CPF</label>
+                  <div className={`${styles.field} corner-box`}>
+                    <span className={styles.fieldIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="4" width="18" height="16" rx="2" />
+                        <path d="M7 9h10M7 13h6" />
+                      </svg>
+                    </span>
+                    <input
+                      id="cpf"
+                      name="cpf"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      required
+                      onChange={(event) => { event.target.value = formatCpf(event.target.value) }}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
-          {demoMode ? (
-            <p className={styles.termsText}>
-              Firebase indisponível no momento. Você entrou em modo de demonstração para visualizar a interface com dados locais.
-            </p>
-          ) : null}
+              {/* ── Password (hidden in forgot mode) ───────────────────── */}
+              {!forgotMode && (
+                <div className={styles.group}>
+                  <label htmlFor="senha">Senha</label>
+                  <div className={`${styles.field} corner-box`}>
+                    <span className={styles.fieldIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    </span>
+                    <input
+                      id="senha"
+                      name="access_key"
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="********"
+                      autoComplete={tab === 'login' ? 'off' : 'new-password'}
+                      required
+                    />
+                    <button type="button" className={styles.eyeBtn} onClick={() => setShowPass((v) => !v)}>
+                      {showPass ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
-          {forgotSent ? (
-            <p className={styles.termsText} style={{ color: '#3ecf8e' }}>
-              Link de redefinição enviado. Verifique sua caixa de entrada e a pasta de spam.
-            </p>
-          ) : null}
+              {/* ── Forgot link (login only) ───────────────────────────── */}
+              {tab === 'login' && !forgotMode && (
+                <div className={styles.forgotRow}>
+                  <button
+                    type="button"
+                    className={styles.forgotLink}
+                    onClick={() => { setForgotMode(true); setErrorMessage('') }}
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
+              )}
 
-          {errorMessage ? (
-            <p className={styles.termsText} style={{ color: '#ff9db3' }}>
-              {errorMessage}
-            </p>
-          ) : null}
+              {/* ── Register-only: confirm password ───────────────────── */}
+              {tab === 'register' && !forgotMode ? (
+                <div className={styles.group}>
+                  <label htmlFor="confirmSenha">Confirmar Senha</label>
+                  <div className={`${styles.field} corner-box`}>
+                    <span className={styles.fieldIcon}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    </span>
+                    <input
+                      id="confirmSenha"
+                      name="confirm_access_key"
+                      type={showConfirm ? 'text' : 'password'}
+                      placeholder="********"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button type="button" className={styles.eyeBtn} onClick={() => setShowConfirm((v) => !v)}>
+                      {showConfirm ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
-          {!forgotSent && (
-            <button className={`${styles.btn} corner-box`} type="submit" disabled={pending}>
-              {pending ? 'PROCESSANDO...' : forgotMode ? 'ENVIAR LINK DE REDEFINIÇÃO' : tab === 'login' ? 'ACESSAR MINHA CONTA' : 'CRIAR MINHA CONTA'}
-            </button>
+              {/* ── Status messages ────────────────────────────────────── */}
+              {!hasFirebaseConfig && !forgotMode ? (
+                <p className={styles.termsText}>
+                  Firebase não configurado. A autenticação entra em modo de demonstração até que as variáveis `VITE_FIREBASE_*` sejam preenchidas.
+                </p>
+              ) : null}
+
+              {demoMode && !forgotMode ? (
+                <p className={styles.termsText}>
+                  Firebase indisponível no momento. Você entrou em modo de demonstração.
+                </p>
+              ) : null}
+
+              {errorMessage ? (
+                <p className={styles.termsText} style={{ color: '#ff9db3' }}>
+                  {errorMessage}
+                </p>
+              ) : null}
+
+              {/* ── Submit ─────────────────────────────────────────────── */}
+              <button className={`${styles.btn} corner-box`} type="submit" disabled={pending}>
+                {pending ? 'PROCESSANDO...' : forgotMode ? 'ENVIAR LINK DE REDEFINIÇÃO' : tab === 'login' ? 'ACESSAR MINHA CONTA' : 'CRIAR MINHA CONTA'}
+              </button>
+
+              {/* ── Back button (forgot mode only) ─────────────────────── */}
+              {forgotMode && (
+                <button
+                  type="button"
+                  className={styles.backBtn}
+                  onClick={() => { setForgotMode(false); setErrorMessage('') }}
+                >
+                  ← Voltar ao login
+                </button>
+              )}
+
+              {tab === 'register' && !forgotMode ? (
+                <p className={styles.termsText}>
+                  Ao criar uma conta, você concorda com nossos <a href="#" className={styles.link}>Termos de Uso</a> e com a <a href="#" className={styles.link}>Política de Privacidade</a>.
+                </p>
+              ) : null}
+            </>
           )}
-
-          {forgotMode && (
-            <button
-              type="button"
-              className={styles.forgotLink}
-              style={{ textAlign: 'center' }}
-              onClick={() => { setForgotMode(false); setForgotSent(false); setErrorMessage('') }}
-            >
-              Voltar ao login
-            </button>
-          )}
-
-          {tab === 'register' && !forgotMode ? (
-            <p className={styles.termsText}>
-              Ao criar uma conta, você concorda com nossos <a href="#" className={styles.link}>Termos de Uso</a> e com a <a href="#" className={styles.link}>Política de Privacidade</a>.
-            </p>
-          ) : null}
         </form>
 
         <div className={styles.footerCard}>

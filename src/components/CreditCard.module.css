@@ -5,6 +5,7 @@
   height: 154px;
   perspective: 1000px;
   color: white;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.34));
 }
 
 .heading {
@@ -130,13 +131,17 @@
 
 .flipCardFront {
   box-shadow: rgba(0, 0, 0, 0.4) 0 2px 2px, rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
-    rgba(0, 0, 0, 0.2) 0 -1px 0 inset;
-  background-color: #171717;
+    rgba(255, 255, 255, 0.06) 0 1px 0 inset;
+  background:
+    radial-gradient(circle at 14% 16%, rgba(87, 183, 241, 0.26) 0%, transparent 22%),
+    radial-gradient(circle at 82% 78%, rgba(74, 127, 219, 0.22) 0%, transparent 24%),
+    linear-gradient(145deg, #071525 0%, #10253d 52%, #08101c 100%);
 }
 
 .flipCardBack {
   box-shadow: rgba(0, 0, 0, 0.4) 0 2px 2px, rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
-    rgba(0, 0, 0, 0.2) 0 -1px 0 inset;
-  background-color: #171717;
+    rgba(255, 255, 255, 0.06) 0 1px 0 inset;
+  background:
+    linear-gradient(160deg, #08111d 0%, #12243a 50%, #070c14 100%);
   transform: rotateY(180deg);
 }
