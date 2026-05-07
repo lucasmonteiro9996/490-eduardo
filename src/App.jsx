@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { AdminAuthProvider } from './context/AdminAuthContext.jsx'
 import { WorkspaceProvider } from './context/WorkspaceContext.jsx'
 import { ToastProvider } from './components/Toast.jsx'
+import { PreferencesProvider } from './context/PreferencesContext.jsx'
 import AppShell from './components/AppShell.jsx'
 import AdminShell from './components/AdminShell.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -24,6 +25,7 @@ function RouteFallback() {
 
 export default function App() {
   return (
+    <PreferencesProvider>
     <AuthProvider>
       <AdminAuthProvider>
         <WorkspaceProvider>
@@ -59,5 +61,6 @@ export default function App() {
         </WorkspaceProvider>
       </AdminAuthProvider>
     </AuthProvider>
+    </PreferencesProvider>
   )
 }

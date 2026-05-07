@@ -2,35 +2,13 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { formatCurrency, useWorkspace } from '../context/WorkspaceContext.jsx'
+import { usePreferences } from '../context/PreferencesContext.jsx'
 import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
 import styles from './Dashboard.module.css'
-
-const pageMeta = {
-  home: {
-    title: 'Dashboard',
-    subtitle: 'Saldo, operações e histórico recente em um painel direto e elegante.',
-  },
-  transactions: {
-    title: 'Extrato',
-    subtitle: 'Consulte entradas, saídas e exporte cada movimentação em PDF.',
-  },
-  wallets: {
-    title: 'Carteiras',
-    subtitle: 'Veja seus saldos em real e dólar em um único painel.',
-  },
-  cards: {
-    title: 'Cartões',
-    subtitle: 'Gerencie cartões físicos e virtuais da conta.',
-  },
-  settings: {
-    title: 'Configurações',
-    subtitle: 'Defina preferências da conta e acompanhe os controles de segurança em um único lugar.',
-  },
-}
 
 const txIcon = {
   receive: { color: 'var(--green)', bg: 'rgba(62,207,142,0.12)', symbol: '↓' },
@@ -52,12 +30,13 @@ function formatSourceMessage(status) {
 }
 
 function InfoBanner({ message }) {
+  const { t } = usePreferences()
   if (!message) return null
   return (
-    <section className={`${styles.heroCard} corner-box`} style={{ padding: '18px 24px' }}>
+    <section className={`${styles.infoBanner} corner-box`}>
       <div className={styles.heroLeft}>
-        <span className={styles.heroLabel}>Status do Firebase</span>
-        <div className={styles.statLabel} style={{ fontSize: '0.88rem', color: 'var(--light-main)' }}>
+        <span className={styles.heroLabel}>{t('firebase_status')}</span>
+        <div className={styles.infoBannerText}>
           {message}
         </div>
       </div>
@@ -65,20 +44,138 @@ function InfoBanner({ message }) {
   )
 }
 
-function HeroPanel({ title, subtitle, userEmail, loading }) {
+function TransactionsSummary({ transactions }) {
+  const { t } = usePreferences()
+  const received = transactions.filter((tx) => tx.type === 'receive').length
+  const sent = transactions.filter((tx) => tx.type === 'send').length
+  const exchanged = transactions.filter((tx) => tx.type === 'exchange').length
+  const pending = transactions.filter((tx) => tx.status === 'pending').length
+
   return (
-    <section className={`${styles.heroCard} corner-box`}>
-      <div className={styles.heroLeft}>
-        <span className={styles.heroLabel}>{title}</span>
-        <div className={styles.heroHeadline}>
-          {loading ? 'Sincronizando seu espaço financeiro.' : title}
-        </div>
-        <p className={styles.heroDescription}>{subtitle}</p>
-        <div className={styles.heroMeta}>
-          <div className={styles.heroBadge}>{userEmail || 'Modo de demonstração'}</div>
-        </div>
+    <div className={styles.pageSummary}>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: 'var(--green)' }}>{received}</span>
+        <span className={styles.pageSummaryLabel}>{t('entries')}</span>
       </div>
-    </section>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: 'var(--red)' }}>{sent}</span>
+        <span className={styles.pageSummaryLabel}>{t('exits')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: '#a78bfa' }}>{exchanged}</span>
+        <span className={styles.pageSummaryLabel}>{t('exchanges')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: pending > 0 ? '#f5c842' : 'rgba(232,225,219,0.4)' }}>{pending}</span>
+        <span className={styles.pageSummaryLabel}>{t('pending')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{transactions.length}</span>
+        <span className={styles.pageSummaryLabel}>{t('total')}</span>
+      </div>
+    </div>
+  )
+}
+
+function WalletsSummary({ wallets, exchangeRates }) {
+  const { t, preferredCurrency } = usePreferences()
+  const brlWallet = wallets.find((w) => w.symbol === 'BRL')
+  const usdWallet = wallets.find((w) => w.symbol === 'USD')
+  const usdBrl = exchangeRates.find((r) => r.pair === 'USD/BRL')
+
+  const rateNum = parseFloat(
+    String(usdBrl?.value || '').replace('R$', '').replace(/\./g, '').replace(',', '.').trim()
+  ) || 5.08
+
+  const totalBrl = (brlWallet?.native || 0) + (usdWallet?.native || 0) * rateNum
+
+  const brlStat = (
+    <div className={styles.pageSummaryStat}>
+      <span className={styles.pageSummaryValue} style={{ color: '#3ecf8e' }}>{formatCurrency(brlWallet?.native || 0, 'BRL')}</span>
+      <span className={styles.pageSummaryLabel}>{t('balance_brl')}</span>
+      <span className={styles.pageSummaryHint}>{brlWallet?.change || '+0,0%'}</span>
+    </div>
+  )
+
+  const usdStat = (
+    <div className={styles.pageSummaryStat}>
+      <span className={styles.pageSummaryValue} style={{ color: '#4a7fdb' }}>{formatCurrency(usdWallet?.native || 0, 'USD')}</span>
+      <span className={styles.pageSummaryLabel}>{t('balance_usd')}</span>
+      <span className={styles.pageSummaryHint}>{usdWallet?.change || '+0,0%'}</span>
+    </div>
+  )
+
+  return (
+    <div className={styles.pageSummary}>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{formatCurrency(totalBrl, 'BRL')}</span>
+        <span className={styles.pageSummaryLabel}>{t('portfolio_total')}</span>
+        <span className={styles.pageSummaryHint}>{t('portfolio_hint')}</span>
+      </div>
+      {preferredCurrency === 'USD' ? usdStat : brlStat}
+      {preferredCurrency === 'USD' ? brlStat : usdStat}
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{usdBrl?.value || 'R$ 5,08'}</span>
+        <span className={styles.pageSummaryLabel}>{t('rate')}</span>
+        <span className={styles.pageSummaryHint}>{usdBrl?.change || '+0,0%'}</span>
+      </div>
+    </div>
+  )
+}
+
+function CardsSummary({ cards }) {
+  const { t } = usePreferences()
+  const activeCount = cards.filter((c) => c.status === 'Ativo').length
+  const brlCards = cards.filter((c) => c.currency === 'BRL').length
+  const usdCards = cards.filter((c) => c.currency === 'USD').length
+
+  return (
+    <div className={styles.pageSummary}>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{cards.length}</span>
+        <span className={styles.pageSummaryLabel}>{cards.length === 1 ? t('cards_registered_1') : t('cards_registered_n')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: 'var(--green)' }}>{activeCount}</span>
+        <span className={styles.pageSummaryLabel}>{activeCount === 1 ? t('active_1') : t('active_n')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{brlCards}</span>
+        <span className={styles.pageSummaryLabel}>{t('brl_cards')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue}>{usdCards}</span>
+        <span className={styles.pageSummaryLabel}>{t('usd_cards')}</span>
+      </div>
+    </div>
+  )
+}
+
+function SettingsSummary({ userName, userEmail, securityEvents }) {
+  const { t } = usePreferences()
+  const twoFactor = securityEvents.some((e) => String(e.title || '').toLowerCase().includes('duas etapas'))
+
+  return (
+    <div className={styles.pageSummary}>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ fontSize: '1rem' }}>{userName}</span>
+        <span className={styles.pageSummaryLabel}>{t('account_holder')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ fontSize: '0.88rem', fontWeight: 600 }}>{userEmail || '—'}</span>
+        <span className={styles.pageSummaryLabel}>{t('email_access')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: 'var(--green)', fontSize: '0.88rem' }}>{t('account_active')}</span>
+        <span className={styles.pageSummaryLabel}>{t('account_status')}</span>
+      </div>
+      <div className={styles.pageSummaryStat}>
+        <span className={styles.pageSummaryValue} style={{ color: twoFactor ? 'var(--green)' : '#f5c842', fontSize: '0.88rem' }}>
+          {twoFactor ? t('two_factor_on') : t('two_factor_off')}
+        </span>
+        <span className={styles.pageSummaryLabel}>{t('two_factor')}</span>
+      </div>
+    </div>
   )
 }
 
@@ -95,31 +192,32 @@ function SectionCard({ title, action, children }) {
 }
 
 function UserRequestStatus({ requests }) {
+  const { t } = usePreferences()
   if (!requests?.length) return null
 
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Pedidos enviados ao administrador</h3>
+        <h3 className={styles.sectionTitle}>{t('requests_title')}</h3>
       </div>
       <div className={styles.walletList}>
         {requests.map((request) => {
           const statusLabel = request.status === 'pending'
-            ? 'Aguardando resposta do admin'
+            ? t('pending_admin')
             : request.status === 'approved'
-              ? 'Aceito pelo admin'
-              : 'Recusado pelo admin'
+              ? t('approved_admin')
+              : t('refused_admin')
 
           return (
             <div key={request.requestId || request.id} className={`${styles.walletItem} corner-box`}>
               <div className={styles.walletInfo}>
                 <span className={styles.walletAmount}>
-                  {request.type === 'deposit' ? 'Depósito' : 'Saque'} · {request.formattedAmount}
+                  {request.type === 'deposit' ? t('tx_deposit_label') : t('tx_withdraw_label')} · {request.formattedAmount}
                 </span>
                 <span className={styles.walletName}>
                   {request.type === 'deposit'
-                    ? `Origem: ${request.source || 'TED'}`
-                    : `Destino: ${request.destination || 'TED'}`}
+                    ? `${t('origin')}: ${request.source || 'TED'}`
+                    : `${t('destination')}: ${request.destination || 'TED'}`}
                 </span>
               </div>
               <div className={styles.walletRight}>
@@ -139,26 +237,35 @@ function UserRequestStatus({ requests }) {
 }
 
 function DashboardSummary({ wallets, exchangeRates, transactions }) {
+  const { t, preferredCurrency } = usePreferences()
   const brlWallet = wallets.find((wallet) => wallet.symbol === 'BRL') ?? wallets[0]
   const usdWallet = wallets.find((wallet) => wallet.symbol === 'USD') ?? wallets[1] ?? wallets[0]
   const usdBrl = exchangeRates.find((rate) => rate.pair === 'USD/BRL') ?? exchangeRates[0]
   const positiveTransactions = transactions.filter((item) => item.amount?.startsWith('+')).length
-  const stableLabel = positiveTransactions > 1 ? 'Fluxo positivo' : 'Movimento estável'
+  const stableLabel = positiveTransactions > 1 ? t('flow_positive') : t('flow_stable')
+
+  const brlCard = (
+    <div className={`${styles.dashboardStatCard} ${styles.statAccentGreen} corner-box ${preferredCurrency === 'BRL' ? styles.statPrimary : ''}`}>
+      <span className={styles.dashboardStatLabel}>{t('balance_brl')}</span>
+      <div className={styles.dashboardStatValue}>{formatCurrency(brlWallet?.native || 0, 'BRL')}</div>
+      <span className={styles.dashboardStatHint}>{t('account_brl')}</span>
+    </div>
+  )
+
+  const usdCard = (
+    <div className={`${styles.dashboardStatCard} ${styles.statAccentCyan} corner-box ${preferredCurrency === 'USD' ? styles.statPrimary : ''}`}>
+      <span className={styles.dashboardStatLabel}>{t('balance_usd')}</span>
+      <div className={styles.dashboardStatValue}>{formatCurrency(usdWallet?.native || 0, 'USD')}</div>
+      <span className={styles.dashboardStatHint}>{t('account_usd')}</span>
+    </div>
+  )
 
   return (
     <div className={styles.dashboardStats}>
-      <div className={`${styles.dashboardStatCard} ${styles.statAccentGreen} corner-box`}>
-        <span className={styles.dashboardStatLabel}>Saldo em real</span>
-        <div className={styles.dashboardStatValue}>{formatCurrency(brlWallet?.native || 0, 'BRL')}</div>
-        <span className={styles.dashboardStatHint}>Conta BRL</span>
-      </div>
-      <div className={`${styles.dashboardStatCard} ${styles.statAccentCyan} corner-box`}>
-        <span className={styles.dashboardStatLabel}>Saldo em dólar</span>
-        <div className={styles.dashboardStatValue}>{formatCurrency(usdWallet?.native || 0, 'USD')}</div>
-        <span className={styles.dashboardStatHint}>Conta USD</span>
-      </div>
+      {preferredCurrency === 'USD' ? usdCard : brlCard}
+      {preferredCurrency === 'USD' ? brlCard : usdCard}
       <div className={`${styles.dashboardStatCard} ${styles.statAccentBlue} corner-box`}>
-        <span className={styles.dashboardStatLabel}>Cotação USD/BRL</span>
+        <span className={styles.dashboardStatLabel}>{t('rate_label')}</span>
         <div className={styles.dashboardStatValue}>{usdBrl?.value || 'R$ 5,08'}</div>
         <span className={styles.dashboardStatHint}>{usdBrl?.change || '+0,32%'} {stableLabel}</span>
       </div>
@@ -167,25 +274,33 @@ function DashboardSummary({ wallets, exchangeRates, transactions }) {
 }
 
 function DashboardActions({ onDeposit, onWithdraw, onStatement }) {
+  const { t } = usePreferences()
   return (
     <div className={styles.dashboardActions}>
       <button className={`${styles.dashboardActionBtn} ${styles.actionGreen} corner-box`} type="button" onClick={onDeposit}>
-        Depositar
+        {t('deposit')}
       </button>
       <button className={`${styles.dashboardActionBtn} ${styles.actionOrange} corner-box`} type="button" onClick={onWithdraw}>
-        Sacar
+        {t('withdraw')}
       </button>
       <button className={`${styles.dashboardActionBtn} ${styles.actionBlue} corner-box`} type="button" onClick={onStatement}>
-        Extrato
+        {t('statement')}
       </button>
     </div>
   )
 }
 
 function WalletList({ wallets }) {
+  const { preferredCurrency } = usePreferences()
+  const sorted = [...wallets].sort((a, b) => {
+    if (a.symbol === preferredCurrency) return -1
+    if (b.symbol === preferredCurrency) return 1
+    return 0
+  })
+
   return (
     <div className={styles.walletList}>
-      {wallets.map((wallet) => (
+      {sorted.map((wallet) => (
         <div key={wallet.id} className={`${styles.walletItem} corner-box`}>
           <div className={styles.walletSymbolWrap}>
             <span className={styles.walletSymbol} style={{ background: `${wallet.color}20`, color: wallet.color }}>
@@ -206,25 +321,26 @@ function WalletList({ wallets }) {
 }
 
 function StatementTable({ transactions, onExportRow, onExportAll, userName }) {
-  const countLabel = `${transactions.length} ${transactions.length === 1 ? 'movimentação' : 'movimentações'}`
+  const { t } = usePreferences()
+  const countLabel = `${transactions.length} ${transactions.length === 1 ? t('count_1') : t('count_n')}`
 
   return (
     <div className={styles.statementWrap}>
       <div className={styles.statementToolbar}>
         <div>
-          <span className={styles.statementOwner}>Titular: <strong>{userName}</strong></span>
+          <span className={styles.statementOwner}>{t('holder_label')}: <strong>{userName}</strong></span>
           <span className={styles.statementCount}>{countLabel}</span>
         </div>
         <button type="button" className={styles.viewAllBtn} onClick={onExportAll}>
-          Exportar extrato completo em PDF
+          {t('export_pdf_btn')}
         </button>
       </div>
       <div className={`${styles.txTable} corner-box`}>
         <div className={styles.statementHead}>
-          <span>Transação</span>
-          <span>Data</span>
-          <span>Status</span>
-          <span style={{ textAlign: 'right' }}>Valor</span>
+          <span>{t('col_transaction')}</span>
+          <span>{t('col_date')}</span>
+          <span>{t('col_status')}</span>
+          <span style={{ textAlign: 'right' }}>{t('col_amount')}</span>
           <span style={{ textAlign: 'center' }}>PDF</span>
         </div>
         <div className={styles.txBody}>
@@ -244,7 +360,7 @@ function StatementTable({ transactions, onExportRow, onExportAll, userName }) {
                 <span className={styles.txTime}>{tx.time}</span>
                 <span className={`${styles.txStatus} ${styles[tx.status] ?? ''}`}>
                   <span className={styles.statusDot} />
-                  {tx.status === 'pending' ? 'Aguardando resposta do admin' : tx.status === 'rejected' ? 'Recusado' : 'Concluído'}
+                  {tx.status === 'pending' ? t('status_pending') : tx.status === 'rejected' ? t('status_rejected') : t('status_completed')}
                 </span>
                 <span className={`${styles.txAmount} ${tx.amount?.startsWith('+') ? styles.up : styles.down}`}>{tx.amount}</span>
                 <button type="button" className={styles.pdfBtn} onClick={() => onExportRow(tx)}>
@@ -260,38 +376,40 @@ function StatementTable({ transactions, onExportRow, onExportAll, userName }) {
 }
 
 function DashboardTransactions({ transactions }) {
-  const rows = transactions.map((tx, index) => {
+  const { t } = usePreferences()
+
+  const rows = transactions.map((tx) => {
     const amount = tx.amount || ''
-    const kindMap = { receive: 'Depósito', send: 'Saque', exchange: 'Câmbio' }
-    const noteMap = { receive: 'Entrada na conta', send: 'Saída da conta', exchange: 'Conversão BRL/USD' }
+    const kindMap = { receive: t('tx_deposit'), send: t('tx_withdraw'), exchange: t('tx_exchange') }
+    const noteMap = { receive: t('note_incoming'), send: t('note_outgoing'), exchange: t('note_exchange') }
 
     return {
       id: tx.id,
-      date: tx.time.includes(',') ? `0${index + 1}/04/2026` : tx.time,
-      type: kindMap[tx.type] ?? 'Movimento',
+      date: tx.time.includes(',') ? tx.time.split(',')[0] : tx.time,
+      type: kindMap[tx.type] ?? t('tx_deposit'),
       value: amount,
-      status: tx.status === 'pending' ? 'Aguardando resposta do admin' : tx.status === 'rejected' ? 'Recusado' : 'Confirmado',
-      note: tx.from || noteMap[tx.type] || 'Sem observação',
+      status: tx.status === 'pending' ? t('status_pending') : tx.status === 'rejected' ? t('status_rejected') : t('status_confirmed'),
+      note: tx.from || noteMap[tx.type] || t('col_note'),
       positive: amount.startsWith('+'),
     }
   })
 
   return (
     <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>Transações recentes</h3>
+      <h3 className={styles.sectionTitle}>{t('recent_tx')}</h3>
       <div className={`${styles.dashboardTable} corner-box`}>
         <div className={styles.dashboardTableHead}>
-          <span>Data</span>
-          <span>Tipo</span>
-          <span>Valor</span>
-          <span>Status</span>
-          <span>Observação</span>
+          <span>{t('col_date')}</span>
+          <span>{t('col_type')}</span>
+          <span>{t('col_amount')}</span>
+          <span>{t('col_status')}</span>
+          <span>{t('col_note')}</span>
         </div>
         <div className={styles.dashboardTableBody}>
           {rows.length === 0 ? (
             <div className={styles.dashboardTableRow}>
               <span style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'rgba(232,225,219,0.55)' }}>
-                Nenhuma movimentação ainda. Faça um depósito para começar.
+                {t('no_movements')}
               </span>
             </div>
           ) : (
@@ -312,8 +430,11 @@ function DashboardTransactions({ transactions }) {
 }
 
 function CardsGallery({ cards, onDeleteCard }) {
+  const { t } = usePreferences()
+  const [pendingDelete, setPendingDelete] = useState(null)
+
   if (!cards.length) {
-    return <p className={styles.heroDescription}>Nenhum cartão cadastrado ainda.</p>
+    return <p className={styles.heroDescription}>{t('no_cards')}</p>
   }
 
   return (
@@ -321,22 +442,42 @@ function CardsGallery({ cards, onDeleteCard }) {
       {cards.map((card) => (
         <div key={card.id} className={styles.cardShowcase}>
           <div className={styles.cardActions}>
-            <button type="button" className={styles.cardDeleteButton} onClick={() => onDeleteCard(card)}>
-              Excluir cartão
-            </button>
+            {pendingDelete === card.id ? (
+              <div className={styles.cardDeleteConfirm}>
+                <span className={styles.cardDeleteQuestion}>{card.brand}?</span>
+                <button
+                  type="button"
+                  className={styles.cardConfirmBtn}
+                  onClick={() => { onDeleteCard(card); setPendingDelete(null) }}
+                >
+                  {t('delete_confirm')}
+                </button>
+                <button
+                  type="button"
+                  className={styles.cardCancelBtn}
+                  onClick={() => setPendingDelete(null)}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className={styles.cardDeleteButton} onClick={() => setPendingDelete(card.id)}>
+                {t('delete_card')}
+              </button>
+            )}
           </div>
           <CreditCard brand={card.brand} holder={card.holder} number={card.number} valid={card.valid} cvv={card.cvv} />
           <div className={styles.cardMeta}>
             <div>
-              <span className={styles.cardMetaLabel}>Moeda</span>
+              <span className={styles.cardMetaLabel}>{t('meta_currency')}</span>
               <span className={styles.cardMetaValue}>{card.currency}</span>
             </div>
             <div>
-              <span className={styles.cardMetaLabel}>Limite</span>
+              <span className={styles.cardMetaLabel}>{t('meta_limit')}</span>
               <span className={styles.cardMetaValue}>{card.limit}</span>
             </div>
             <div>
-              <span className={styles.cardMetaLabel}>Status</span>
+              <span className={styles.cardMetaLabel}>{t('meta_status')}</span>
               <span className={`${styles.cardMetaValue} ${styles.cardStatusOk}`}>{card.status}</span>
             </div>
           </div>
@@ -370,6 +511,7 @@ function formatCardExpiry(value = '') {
 }
 
 function AddCardPanel({ defaultHolder, onAddCard }) {
+  const { t } = usePreferences()
   const [form, setForm] = useState({
     holder: defaultHolder || '',
     number: '',
@@ -396,7 +538,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
     const limitValue = String(form.limit || '').trim()
 
     if (!holder || digits.length < 16 || valid.length !== 5 || cvv.length < 3 || !limitValue) {
-      setFeedback('Preencha nome, número, validade, CVV e limite para adicionar o cartão.')
+      setFeedback(t('card_error_fill'))
       return
     }
 
@@ -420,22 +562,22 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
       cvv: '',
       limit: '',
     }))
-    setFeedback('Cartão adicionado com sucesso. Ele já aparece na galeria abaixo.')
+    setFeedback(t('card_added_ok'))
   }
 
   return (
     <div className={styles.cardComposerGrid}>
       <form className={`${styles.cardComposer} corner-box`} onSubmit={handleSubmit}>
         <div className={styles.cardComposerHeader}>
-          <span className={styles.cardComposerKicker}>Dados do cartão</span>
-          <h4 className={styles.cardComposerTitle}>Adicionar novo cartão</h4>
+          <span className={styles.cardComposerKicker}>{t('card_data_kicker')}</span>
+          <h4 className={styles.cardComposerTitle}>{t('add_card_title')}</h4>
           <p className={styles.cardComposerText}>
-            Cadastre um cartão manualmente para que ele apareça na galeria com o visual já estilizado.
+            {t('add_card_desc')}
           </p>
         </div>
 
         <label className={styles.cardField}>
-          <span>Nome impresso</span>
+          <span>{t('field_holder')}</span>
           <input
             type="text"
             value={form.holder}
@@ -446,7 +588,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
         </label>
 
         <label className={styles.cardField}>
-          <span>Número do cartão</span>
+          <span>{t('field_number')}</span>
           <input
             type="text"
             inputMode="numeric"
@@ -459,7 +601,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
 
         <div className={styles.cardFieldRow}>
           <label className={styles.cardField}>
-            <span>Validade</span>
+            <span>{t('field_expiry')}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -471,7 +613,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
           </label>
 
           <label className={styles.cardField}>
-            <span>CVV</span>
+            <span>{t('field_cvv')}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -485,7 +627,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
 
         <div className={styles.cardFieldRow}>
           <label className={styles.cardField}>
-            <span>Moeda</span>
+            <span>{t('field_currency')}</span>
             <select value={form.currency} onChange={(event) => updateField('currency', event.target.value)}>
               <option value="BRL">BRL</option>
               <option value="USD">USD</option>
@@ -493,7 +635,7 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
           </label>
 
           <label className={styles.cardField}>
-            <span>Limite</span>
+            <span>{t('field_limit')}</span>
             <input
               type="text"
               inputMode="decimal"
@@ -507,23 +649,23 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
         {feedback ? <p className={styles.cardComposerMessage}>{feedback}</p> : null}
 
         <button type="submit" className={styles.cardComposerButton}>
-          Adicionar cartão
+          {t('add_card_btn')}
         </button>
       </form>
 
       <aside className={`${styles.cardInstructions} corner-box`}>
         <div className={styles.cardInstructionsHeader}>
           <span className={styles.cardInstructionsIcon}>◫</span>
-          <strong>Como funciona</strong>
+          <strong>{t('how_title')}</strong>
         </div>
         <ol className={styles.cardInstructionsList}>
-          <li>Preencha os dados principais do cartão.</li>
-          <li>Defina a moeda e o limite da conta vinculada.</li>
-          <li>Clique em adicionar para gerar o cartão visual.</li>
-          <li>Use o botão de exclusão para remover cartões com confirmação.</li>
+          <li>{t('how_step1')}</li>
+          <li>{t('how_step2')}</li>
+          <li>{t('how_step3')}</li>
+          <li>{t('how_step4')}</li>
         </ol>
         <div className={styles.cardInstructionsNote}>
-          Esse fluxo simula a experiência de cadastro antes da integração com backend ou carteira digital.
+          {t('how_note')}
         </div>
       </aside>
     </div>
@@ -548,15 +690,66 @@ function SimpleList({ items, primaryKey = 'title', secondaryKey = 'description' 
   )
 }
 
+function PreferencesPanel() {
+  const { t, language, preferredCurrency, changeLanguage, changeCurrency } = usePreferences()
+
+  const languages = [
+    { code: 'pt', label: 'Português' },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Español' },
+  ]
+
+  const currencies = [
+    { code: 'BRL', label: t('currency_brl') },
+    { code: 'USD', label: t('currency_usd') },
+  ]
+
+  return (
+    <div className={styles.prefGrid}>
+      <div className={styles.prefGroup}>
+        <span className={styles.prefGroupLabel}>{t('pref_primary_currency')}</span>
+        <div className={styles.prefOptions}>
+          {currencies.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              className={`${styles.prefOption} ${preferredCurrency === c.code ? styles.prefOptionActive : ''}`}
+              onClick={() => changeCurrency(c.code)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={styles.prefGroup}>
+        <span className={styles.prefGroupLabel}>{t('pref_language')}</span>
+        <div className={styles.prefOptions}>
+          {languages.map((l) => (
+            <button
+              key={l.code}
+              type="button"
+              className={`${styles.prefOption} ${language === l.code ? styles.prefOptionActive : ''}`}
+              onClick={() => changeLanguage(l.code)}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Notificações do usuário (respostas do admin) ─────────────────────────────
 
 function UserNotifications({ notifications, onDismiss }) {
+  const { t } = usePreferences()
   if (!notifications || notifications.length === 0) return null
 
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>Notificações do administrador</h3>
+        <h3 className={styles.sectionTitle}>{t('notifications_title')}</h3>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {notifications.map((n) => {
@@ -584,12 +777,11 @@ function UserNotifications({ notifications, onDismiss }) {
                 }}>
                   {n.subject}
                 </span>
-                <span
-                  style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}
-                  dangerouslySetInnerHTML={{ __html: n.body }}
-                />
+                <span style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}>
+                  {n.body}
+                </span>
                 <span style={{ fontSize: '0.68rem', color: 'rgba(232,225,219,0.38)', marginTop: '2px' }}>
-                  De: {n.from} · {n.sentAt}
+                  {t('from_label')}: {n.from} · {n.sentAt}
                 </span>
               </div>
               <button
@@ -604,7 +796,7 @@ function UserNotifications({ notifications, onDismiss }) {
                   flexShrink: 0,
                   lineHeight: 1,
                 }}
-                aria-label="Fechar"
+                aria-label={t('close_label')}
               >
                 ×
               </button>
@@ -616,16 +808,26 @@ function UserNotifications({ notifications, onDismiss }) {
   )
 }
 
+const LOCALE_MAP = { pt: 'pt-BR', en: 'en-US', es: 'es-ES' }
+
 export default function WorkspacePage({ pageKey }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const workspace = useWorkspace()
   const toast = useToast()
+  const { t, language } = usePreferences()
   const [modal, setModal] = useState(null)
   const [localCards, setLocalCards] = useState([])
   const [deletedCardIds, setDeletedCardIds] = useState([])
 
-  const meta = pageMeta[pageKey] ?? pageMeta.home
+  const pageTitleKey = {
+    home: 'page_home',
+    transactions: 'page_transactions',
+    wallets: 'page_wallets',
+    cards: 'page_cards',
+    settings: 'page_settings',
+  }
+
   const bannerMessage = useMemo(
     () => formatSourceMessage(workspace.transactions.status) ?? formatSourceMessage(workspace.wallets.status),
     [workspace.transactions.status, workspace.wallets.status],
@@ -637,7 +839,7 @@ export default function WorkspacePage({ pageKey }) {
   }
 
   const userName = user?.displayName || user?.email || 'Cliente Ocean Capital'
-  const dateLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const dateLabel = new Date().toLocaleDateString(LOCALE_MAP[language] || 'pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   function handleConfirm(payload) {
     if (modal === 'deposit') {
@@ -676,9 +878,6 @@ export default function WorkspacePage({ pageKey }) {
   }
 
   function handleDeleteCard(card) {
-    const approved = window.confirm(`Deseja realmente excluir o cartão ${card.brand}?`)
-    if (!approved) return
-
     setLocalCards((current) => current.filter((item) => item.id !== card.id))
     setDeletedCardIds((current) => (current.includes(card.id) ? current : [...current, card.id]))
   }
@@ -689,20 +888,18 @@ export default function WorkspacePage({ pageKey }) {
     <div className={styles.main}>
       <header className={styles.topbar}>
         <div className={styles.topbarLeft}>
-          <h2 className={styles.pageTitle}>{meta.title}</h2>
+          <h2 className={styles.pageTitle}>{t(pageTitleKey[pageKey] ?? 'page_home')}</h2>
           <span className={styles.pageDate}>{dateLabel}</span>
         </div>
         <div className={styles.topbarRight}>
           <div className={styles.topAvatar}>{(user?.displayName || user?.email || 'OC').slice(0, 2).toUpperCase()}</div>
           <button className={styles.viewAllBtn} onClick={handleLogout} type="button">
-            Sair
+            {t('logout')}
           </button>
         </div>
       </header>
 
       <div className={styles.content}>
-        <HeroPanel title={meta.title} subtitle={meta.subtitle} userEmail={user?.email} loading={workspace.loading} />
-
         <InfoBanner message={bannerMessage} />
 
         {pageKey === 'home' && (
@@ -727,28 +924,38 @@ export default function WorkspacePage({ pageKey }) {
         )}
 
         {pageKey === 'transactions' && (
-          <SectionCard title="Histórico de movimentações">
-            <StatementTable
-              transactions={workspace.transactions.data}
-              onExportRow={exportRowPdf}
-              onExportAll={exportAllPdf}
-              userName={userName}
-            />
-          </SectionCard>
+          <>
+            <TransactionsSummary transactions={workspace.transactions.data} />
+            <SectionCard title={t('section_history')}>
+              <StatementTable
+                transactions={workspace.transactions.data}
+                onExportRow={exportRowPdf}
+                onExportAll={exportAllPdf}
+                userName={userName}
+              />
+            </SectionCard>
+          </>
         )}
 
         {pageKey === 'wallets' && (
-          <SectionCard title="Suas contas em real e dólar">
-            <WalletList wallets={workspace.wallets.data} />
-          </SectionCard>
+          <>
+            <WalletsSummary
+              wallets={workspace.wallets.data}
+              exchangeRates={workspace.exchangeRates.data}
+            />
+            <SectionCard title={t('section_wallets')}>
+              <WalletList wallets={workspace.wallets.data} />
+            </SectionCard>
+          </>
         )}
 
         {pageKey === 'cards' && (
           <>
-            <SectionCard title="Adicionar cartão">
+            <CardsSummary cards={cardsData} />
+            <SectionCard title={t('section_add_card')}>
               <AddCardPanel defaultHolder={userName} onAddCard={handleAddCard} />
             </SectionCard>
-            <SectionCard title="Seus cartões">
+            <SectionCard title={t('section_cards')}>
               <CardsGallery cards={cardsData} onDeleteCard={handleDeleteCard} />
             </SectionCard>
           </>
@@ -756,10 +963,15 @@ export default function WorkspacePage({ pageKey }) {
 
         {pageKey === 'settings' && (
           <>
-            <SectionCard title="Preferências">
-              <SimpleList items={workspace.settings.data} primaryKey="label" secondaryKey="value" />
+            <SettingsSummary
+              userName={userName}
+              userEmail={user?.email}
+              securityEvents={workspace.securityEvents.data}
+            />
+            <SectionCard title={t('section_preferences')}>
+              <PreferencesPanel />
             </SectionCard>
-            <SectionCard title="Segurança da conta">
+            <SectionCard title={t('section_security')}>
               <SimpleList items={workspace.securityEvents.data} />
             </SectionCard>
           </>

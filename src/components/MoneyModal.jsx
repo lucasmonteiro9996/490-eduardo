@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePreferences } from '../context/PreferencesContext.jsx'
 import styles from './MoneyModal.module.css'
 
 const depositSources = {
@@ -12,6 +13,7 @@ const withdrawDestinations = {
 }
 
 export default function MoneyModal({ mode, open, onClose, onConfirm }) {
+  const { t } = usePreferences()
   const [symbol, setSymbol] = useState('BRL')
   const [amount, setAmount] = useState('')
   const [extra, setExtra] = useState(mode === 'deposit' ? depositSources.BRL[0] : withdrawDestinations.BRL[0])
@@ -38,9 +40,18 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
   if (!open) return null
 
   const isDeposit = mode === 'deposit'
-  const title = isDeposit ? 'Depositar' : 'Sacar'
-  const actionLabel = isDeposit ? 'Confirmar depósito' : 'Confirmar saque'
-  const extraLabel = isDeposit ? 'Origem do depósito' : 'Destino do saque'
+  const title = isDeposit ? t('deposit') : t('withdraw')
+
+  const amountPreview = useMemo(() => {
+    const parsed = Number(String(amount).replace(/\./g, '').replace(',', '.'))
+    if (!parsed || parsed <= 0) return null
+    return new Intl.NumberFormat(symbol === 'BRL' ? 'pt-BR' : 'en-US', {
+      style: 'currency',
+      currency: symbol,
+    }).format(parsed)
+  }, [amount, symbol])
+  const actionLabel = isDeposit ? t('modal_deposit_action') : t('modal_withdraw_action')
+  const extraLabel = isDeposit ? t('modal_origin') : t('modal_dest')
   const extraOptions = isDeposit ? depositSources[symbol] : withdrawDestinations[symbol]
   const currencySymbol = symbol === 'BRL' ? 'R$' : '$'
 
@@ -48,7 +59,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
     event.preventDefault()
     const parsed = Number(String(amount).replace(/\./g, '').replace(',', '.'))
     if (!parsed || parsed <= 0) {
-      setError('Informe um valor maior que zero.')
+      setError(t('modal_invalid'))
       return
     }
     onConfirm({
@@ -64,10 +75,10 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
       <div className={`${styles.modal} corner-box`} onClick={(event) => event.stopPropagation()}>
         <div className={styles.head}>
           <div>
-            <span className={styles.kicker}>{isDeposit ? 'Entrada de dinheiro' : 'Retirada de dinheiro'}</span>
+            <span className={styles.kicker}>{isDeposit ? t('modal_deposit_kicker') : t('modal_withdraw_kicker')}</span>
             <h3 className={styles.title}>{title}</h3>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Fechar">
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t('close_label')}>
             ×
           </button>
         </div>
@@ -81,13 +92,13 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
                 className={`${styles.currencyBtn} ${symbol === code ? styles.currencyBtnActive : ''}`}
                 onClick={() => setSymbol(code)}
               >
-                {code === 'BRL' ? 'Real (BRL)' : 'Dólar (USD)'}
+                {code === 'BRL' ? t('currency_brl') : t('currency_usd')}
               </button>
             ))}
           </div>
 
           <label className={styles.label}>
-            Valor
+            {t('modal_amount')}
             <div className={`${styles.amountField} corner-box`}>
               <span className={styles.amountPrefix}>{currencySymbol}</span>
               <input
@@ -101,6 +112,10 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
             </div>
           </label>
 
+          {amountPreview && (
+            <p className={styles.amountPreview}>{amountPreview}</p>
+          )}
+
           <label className={styles.label}>
             {extraLabel}
             <select value={extra} onChange={(event) => setExtra(event.target.value)} className={`${styles.select} corner-box`}>
@@ -113,13 +128,13 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
           </label>
 
           <label className={styles.label}>
-            Observação (opcional)
+            {t('modal_note')}
             <input
               type="text"
               className={`${styles.input} corner-box`}
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder={isDeposit ? 'Ex.: recebimento de cliente' : 'Ex.: aluguel de abril'}
+              placeholder={isDeposit ? t('modal_note_deposit_ph') : t('modal_note_withdraw_ph')}
               maxLength={80}
             />
           </label>
@@ -128,7 +143,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm }) {
 
           <div className={styles.actions}>
             <button type="button" className={styles.btnGhost} onClick={onClose}>
-              Cancelar
+              {t('modal_cancel')}
             </button>
             <button type="submit" className={`${styles.btnPrimary} ${isDeposit ? styles.btnDeposit : styles.btnWithdraw}`}>
               {actionLabel}

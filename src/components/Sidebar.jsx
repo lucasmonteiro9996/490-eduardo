@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { usePreferences } from '../context/PreferencesContext.jsx'
 import { navItems } from '../data/navigation.js'
 import styles from './Sidebar.module.css'
 
@@ -64,6 +65,7 @@ function Icon({ id }) {
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { user } = useAuth()
+  const { t } = usePreferences()
   const initials = (user?.displayName || user?.email || 'OC').slice(0, 2).toUpperCase()
 
   return (
@@ -83,7 +85,7 @@ export default function Sidebar() {
             />
           ) : null}
         </div>
-        <button className={styles.collapseBtn} onClick={() => setCollapsed((value) => !value)} title={collapsed ? 'Expandir' : 'Recolher'} type="button">
+        <button className={styles.collapseBtn} onClick={() => setCollapsed((value) => !value)} title={collapsed ? t('sidebar_expand') : t('sidebar_collapse')} type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             {collapsed ? <path d="m9 18 6-6-6-6" /> : <path d="m15 18-6-6 6-6" />}
           </svg>
@@ -91,22 +93,25 @@ export default function Sidebar() {
       </div>
 
       <nav className={styles.nav}>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            end={item.path === '/dashboard'}
-            className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-            title={collapsed ? item.label : ''}
-          >
-            <span className={styles.navIcon}>
-              <Icon id={item.id} />
-            </span>
-            {!collapsed ? <span className={styles.navLabel}>{item.label}</span> : null}
-            {!collapsed && item.badge ? <span className={styles.badge}>{item.badge}</span> : null}
-            {collapsed && item.badge ? <span className={styles.badgeDot} /> : null}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const label = t(`nav_${item.id}`)
+          return (
+            <NavLink
+              key={item.id}
+              to={item.path}
+              end={item.path === '/dashboard'}
+              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
+              title={collapsed ? label : ''}
+            >
+              <span className={styles.navIcon}>
+                <Icon id={item.id} />
+              </span>
+              {!collapsed ? <span className={styles.navLabel}>{label}</span> : null}
+              {!collapsed && item.badge ? <span className={styles.badge}>{item.badge}</span> : null}
+              {collapsed && item.badge ? <span className={styles.badgeDot} /> : null}
+            </NavLink>
+          )
+        })}
 
         {/* Seção admin removida — o painel admin tem login e sidebar próprios em /admin */}
       </nav>
@@ -115,10 +120,10 @@ export default function Sidebar() {
         <div className={styles.userArea}>
           <div className={styles.avatar}>{initials}</div>
           <div className={styles.userInfo}>
-            <span className={styles.userName}>{user?.displayName || 'Conta local'}</span>
+            <span className={styles.userName}>{user?.displayName || t('sidebar_local_account')}</span>
             <span className={styles.userPlan}>
               <span className={styles.planDot} />
-              Firebase pronto
+              {t('sidebar_firebase_ready')}
             </span>
           </div>
         </div>

@@ -3,15 +3,32 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './AuthPage.module.css'
 
+function formatCpf(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
+}
+
 export default function AuthPage() {
   const [tab, setTab] = useState('login')
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [pending, setPending] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, login, register, hasFirebaseConfig, demoMode } = useAuth()
+  const { user, login, register, resetPassword, hasFirebaseConfig, demoMode } = useAuth()
+
+  function switchTab(next) {
+    setTab(next)
+    setForgotMode(false)
+    setForgotSent(false)
+    setErrorMessage('')
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -23,6 +40,23 @@ export default function AuthPage() {
     const confirmPassword = String(formData.get('confirm_access_key') || '')
 
     setErrorMessage('')
+
+    if (forgotMode) {
+      if (!email) {
+        setErrorMessage('Informe seu e-mail para receber o link de redefinição.')
+        return
+      }
+      setPending(true)
+      try {
+        await resetPassword(email)
+        setForgotSent(true)
+      } catch (error) {
+        setErrorMessage(error?.message || 'Não foi possível enviar o link de redefinição.')
+      } finally {
+        setPending(false)
+      }
+      return
+    }
 
     if (tab === 'register' && password !== confirmPassword) {
       setErrorMessage('As senhas precisam ser iguais.')
@@ -76,7 +110,7 @@ export default function AuthPage() {
         <div className={styles.tabs}>
           <button
             className={`${styles.tab} ${tab === 'login' ? styles.tabActive : ''}`}
-            onClick={() => setTab('login')}
+            onClick={() => switchTab('login')}
             type="button"
           >
             <span className={styles.tabIcon}>
@@ -88,7 +122,7 @@ export default function AuthPage() {
           </button>
           <button
             className={`${styles.tab} ${tab === 'register' ? styles.tabActive : ''}`}
-            onClick={() => setTab('register')}
+            onClick={() => switchTab('register')}
             type="button"
           >
             <span className={styles.tabIcon}>
@@ -150,43 +184,66 @@ export default function AuthPage() {
                     <path d="M7 9h10M7 13h6" />
                   </svg>
                 </span>
-                <input id="cpf" name="cpf" type="text" placeholder="000.000.000-00" maxLength={14} required />
+                <input
+                  id="cpf"
+                  name="cpf"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  required
+                  onChange={(event) => { event.target.value = formatCpf(event.target.value) }}
+                />
               </div>
             </div>
           ) : null}
 
-          <div className={styles.group}>
-            <label htmlFor="senha">Senha</label>
-            <div className={`${styles.field} corner-box`}>
-              <span className={styles.fieldIcon}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              </span>
-              <input
-                id="senha"
-                name="access_key"
-                type={showPass ? 'text' : 'password'}
-                placeholder="********"
-                autoComplete={tab === 'login' ? 'off' : 'new-password'}
-                required
-              />
-              <button type="button" className={styles.eyeBtn} onClick={() => setShowPass((value) => !value)}>
-                {showPass ? (
+          {!forgotMode && (
+            <div className={styles.group}>
+              <label htmlFor="senha">Senha</label>
+              <div className={`${styles.field} corner-box`}>
+                <span className={styles.fieldIcon}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
+                </span>
+                <input
+                  id="senha"
+                  name="access_key"
+                  type={showPass ? 'text' : 'password'}
+                  placeholder="********"
+                  autoComplete={tab === 'login' ? 'off' : 'new-password'}
+                  required={!forgotMode}
+                />
+                <button type="button" className={styles.eyeBtn} onClick={() => setShowPass((value) => !value)}>
+                  {showPass ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'login' && !forgotMode && (
+            <div className={styles.forgotRow}>
+              <button
+                type="button"
+                className={styles.forgotLink}
+                onClick={() => { setForgotMode(true); setErrorMessage('') }}
+              >
+                Esqueci minha senha
               </button>
             </div>
-          </div>
+          )}
 
           {tab === 'register' ? (
             <div className={styles.group}>
@@ -235,17 +292,36 @@ export default function AuthPage() {
             </p>
           ) : null}
 
+          {forgotSent ? (
+            <p className={styles.termsText} style={{ color: '#3ecf8e' }}>
+              Link de redefinição enviado. Verifique sua caixa de entrada e a pasta de spam.
+            </p>
+          ) : null}
+
           {errorMessage ? (
             <p className={styles.termsText} style={{ color: '#ff9db3' }}>
               {errorMessage}
             </p>
           ) : null}
 
-          <button className={`${styles.btn} corner-box`} type="submit" disabled={pending}>
-            {pending ? 'PROCESSANDO...' : tab === 'login' ? 'ACESSAR MINHA CONTA' : 'CRIAR MINHA CONTA'}
-          </button>
+          {!forgotSent && (
+            <button className={`${styles.btn} corner-box`} type="submit" disabled={pending}>
+              {pending ? 'PROCESSANDO...' : forgotMode ? 'ENVIAR LINK DE REDEFINIÇÃO' : tab === 'login' ? 'ACESSAR MINHA CONTA' : 'CRIAR MINHA CONTA'}
+            </button>
+          )}
 
-          {tab === 'register' ? (
+          {forgotMode && (
+            <button
+              type="button"
+              className={styles.forgotLink}
+              style={{ textAlign: 'center' }}
+              onClick={() => { setForgotMode(false); setForgotSent(false); setErrorMessage('') }}
+            >
+              Voltar ao login
+            </button>
+          )}
+
+          {tab === 'register' && !forgotMode ? (
             <p className={styles.termsText}>
               Ao criar uma conta, você concorda com nossos <a href="#" className={styles.link}>Termos de Uso</a> e com a <a href="#" className={styles.link}>Política de Privacidade</a>.
             </p>

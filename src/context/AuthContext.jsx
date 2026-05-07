@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -114,6 +115,10 @@ export function AuthProvider({ children }) {
       }
 
       return credential.user
+    },
+    async resetPassword(email) {
+      if (!auth) throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
+      await sendPasswordResetEmail(auth, email)
     },
     async logout() {
       if (demoMode) {
