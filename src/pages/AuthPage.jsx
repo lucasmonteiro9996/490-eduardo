@@ -17,6 +17,7 @@ export default function AuthPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [pending, setPending] = useState(false)
+  const [authenticating, setAuthenticating] = useState(false)
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
   const navigate = useNavigate()
@@ -74,8 +75,11 @@ export default function AuthPage() {
         }
       }
 
+      setAuthenticating(true)
+      await new Promise((resolve) => setTimeout(resolve, 850))
       navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
     } catch (error) {
+      setAuthenticating(false)
       setErrorMessage(error?.message || 'Não foi possível autenticar agora.')
     } finally {
       setPending(false)
@@ -87,11 +91,13 @@ export default function AuthPage() {
   }
 
   return (
-    <div className={styles.bg}>
+    <div className={`${styles.bg} ${authenticating ? styles.bgAuthenticating : ''}`}>
       <div className={styles.orb1} />
       <div className={styles.orb2} />
+      <div className={styles.gridGlow} />
 
-      <main className={`${styles.card} corner-box`}>
+      <main className={`${styles.card} corner-box ${authenticating ? styles.cardAuthenticating : ''}`}>
+        <div className={styles.scanline} />
         <div className={styles.header}>
           <div className={styles.logoWrap}>
             <img
@@ -341,7 +347,11 @@ export default function AuthPage() {
               ) : null}
 
               {/* ── Submit ─────────────────────────────────────────────── */}
-              <button className={`${styles.btn} corner-box`} type="submit" disabled={pending}>
+              <button
+                className={`${styles.btn} ${pending ? styles.btnPending : ''} ${authenticating ? styles.btnSuccess : ''} corner-box`}
+                type="submit"
+                disabled={pending}
+              >
                 {pending ? 'PROCESSANDO...' : forgotMode ? 'ENVIAR LINK DE REDEFINIÇÃO' : tab === 'login' ? 'ACESSAR MINHA CONTA' : 'CRIAR MINHA CONTA'}
               </button>
 
@@ -372,6 +382,13 @@ export default function AuthPage() {
           </svg>
           Protegido por criptografia de ponta a ponta
         </div>
+
+        {authenticating ? (
+          <div className={styles.authOverlay}>
+            <div className={styles.authPulse} />
+            <span className={styles.authOverlayText}>Conectando ao painel...</span>
+          </div>
+        ) : null}
       </main>
     </div>
   )

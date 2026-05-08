@@ -32,6 +32,8 @@
   --accent-hover: #5d91e5;
   --accent-glow: rgba(74, 127, 219, 0.25);
   --accent-cyan: #2ebce6;
+  --accent-ice: #8fdcff;
+  --accent-gold: #caa56b;
   --panel: rgba(61, 86, 117, 0.18);
   --panel-strong: rgba(10, 21, 44, 0.88);
   --panel-border: rgba(232, 225, 219, 0.08);
@@ -55,25 +57,47 @@ html, body, #root {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   background:
-    radial-gradient(circle at 16% 12%, rgba(74, 127, 219, 0.2) 0%, transparent 24%),
-    radial-gradient(circle at 82% 18%, rgba(46, 188, 230, 0.12) 0%, transparent 18%),
-    radial-gradient(circle at 84% 88%, rgba(61, 86, 117, 0.2) 0%, transparent 24%),
-    linear-gradient(180deg, var(--blue-void) 0%, var(--blue-deeper) 36%, var(--blue-dark) 100%);
+    radial-gradient(circle at 14% 12%, rgba(143, 220, 255, 0.12) 0%, transparent 19%),
+    radial-gradient(circle at 80% 14%, rgba(74, 127, 219, 0.2) 0%, transparent 24%),
+    radial-gradient(circle at 82% 82%, rgba(46, 188, 230, 0.1) 0%, transparent 21%),
+    linear-gradient(135deg, rgba(202, 165, 107, 0.05) 0%, transparent 24%),
+    linear-gradient(180deg, #020814 0%, #03122d 38%, #02153a 100%);
   color: var(--light-main);
   min-height: 100vh;
   background-attachment: fixed;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.012em;
+  text-rendering: optimizeLegibility;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.015)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.014) 0,
+      rgba(255, 255, 255, 0.014) 1px,
+      transparent 1px,
+      transparent 120px
+    );
+  opacity: 0.22;
+  mix-blend-mode: screen;
+  z-index: -1;
 }
 
 button {
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
   cursor: pointer;
 }
 
 input, select, textarea {
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
 /* ---- Scrollbar ---- */
@@ -123,4 +147,9 @@ input, select, textarea {
 ::selection {
   background: rgba(74, 127, 219, 0.28);
   color: #fff;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Walkway Expand', 'Segoe UI', sans-serif;
+  letter-spacing: 0.03em;
 }

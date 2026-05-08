@@ -15,9 +15,9 @@
   padding: 0 28px;
   height: 68px;
   min-height: 68px;
-  border-bottom: 1px solid rgba(61, 86, 117, 0.2);
-  background: rgba(1, 12, 30, 0.6);
-  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(99, 129, 173, 0.16);
+  background: linear-gradient(180deg, rgba(3, 12, 31, 0.82), rgba(4, 15, 37, 0.62));
+  backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -33,14 +33,15 @@
 .pageTitle {
   font-family: 'Walkway Expand', 'Inter', sans-serif;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   color: var(--light-main);
   letter-spacing: 0.02em;
 }
 
 .pageSubtitle {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  font-size: 0.74rem;
+  color: rgba(232, 225, 219, 0.5);
+  letter-spacing: 0.04em;
 }
 
 .adminBadge {
@@ -50,8 +51,8 @@
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--yellow);
-  background: rgba(245, 200, 66, 0.1);
-  border: 1px solid rgba(245, 200, 66, 0.25);
+  background: rgba(202, 165, 107, 0.12);
+  border: 1px solid rgba(202, 165, 107, 0.24);
   border-radius: 20px;
   padding: 3px 10px;
   letter-spacing: 0.05em;
@@ -62,7 +63,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: 28px;
+  padding: 30px 28px 34px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -70,14 +71,17 @@
 
 /* ── Header card ── */
 .headerCard {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  padding: 22px 26px;
+  background:
+    radial-gradient(circle at top right, rgba(143, 220, 255, 0.08) 0%, transparent 20%),
+    linear-gradient(145deg, rgba(11, 26, 58, 0.96), rgba(5, 15, 36, 0.96));
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  border-radius: 22px;
+  padding: 24px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.2);
 }
 
 .headerLeft {
@@ -89,23 +93,23 @@
 .headerKicker {
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--yellow);
+  color: var(--accent-ice);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .headerTitle {
   font-family: 'Walkway Expand', 'Inter', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1.16rem;
   font-weight: 700;
   color: var(--light-main);
 }
 
 .headerDescription {
-  font-size: 0.82rem;
-  color: var(--text-soft);
+  font-size: 0.84rem;
+  color: rgba(232, 225, 219, 0.72);
   max-width: 520px;
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 .headerStats {
@@ -119,11 +123,12 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  background: rgba(61, 86, 117, 0.25);
-  border: 1px solid rgba(232, 225, 219, 0.08);
-  border-radius: 12px;
-  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(232, 225, 219, 0.07);
+  border-radius: 16px;
+  padding: 12px 18px;
   min-width: 80px;
+  backdrop-filter: blur(10px);
 }
 
 .statPillValue {
@@ -151,13 +156,15 @@
 }
 
 .filterPanel {
-  background: linear-gradient(180deg, rgba(8, 22, 52, 0.95), rgba(4, 14, 36, 0.95));
-  border: 1px solid rgba(74, 127, 219, 0.14);
-  border-radius: 16px;
-  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(8, 22, 52, 0.98), rgba(4, 14, 36, 0.98));
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  border-radius: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.16);
 }
 
 .filterPanelTop {
@@ -171,7 +178,7 @@
   display: block;
   margin-top: 4px;
   color: var(--light-main);
-  font-size: 0.98rem;
+  font-size: 1.04rem;
 }
 
 .filterPanelHint {
@@ -202,13 +209,14 @@
 .filterField input,
 .filterField select {
   width: 100%;
-  height: 42px;
-  background: rgba(1, 24, 66, 0.76);
-  border: 1px solid rgba(61, 86, 117, 0.4);
-  border-radius: 10px;
+  height: 46px;
+  background: rgba(1, 24, 66, 0.84);
+  border: 1px solid rgba(99, 129, 173, 0.24);
+  border-radius: 12px;
   padding: 0 14px;
   color: var(--light-main);
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .filterField input::placeholder {
@@ -217,7 +225,9 @@
 
 .filterField input:focus,
 .filterField select:focus {
-  border-color: rgba(74, 127, 219, 0.72);
+  border-color: rgba(143, 220, 255, 0.42);
+  box-shadow: 0 0 0 4px rgba(74, 127, 219, 0.08);
+  transform: translateY(-1px);
 }
 
 .segmentedControl {
@@ -228,10 +238,10 @@
 
 .segmentBtn {
   flex: 1;
-  height: 42px;
-  border-radius: 10px;
-  border: 1px solid rgba(61, 86, 117, 0.38);
-  background: rgba(255, 255, 255, 0.03);
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text-soft);
   font-size: 0.78rem;
   font-weight: 600;
@@ -240,23 +250,24 @@
 }
 
 .segmentBtnActive {
-  background: rgba(74, 127, 219, 0.18);
+  background: linear-gradient(135deg, rgba(74, 127, 219, 0.26), rgba(39, 88, 167, 0.24));
   color: var(--light-main);
-  border-color: rgba(74, 127, 219, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(143, 220, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 20px rgba(26, 70, 138, 0.16);
 }
 
 .analyticsCard {
   background:
-    linear-gradient(180deg, rgba(9, 26, 58, 0.94), rgba(4, 14, 36, 0.94));
-  border: 1px solid rgba(74, 127, 219, 0.14);
-  border-radius: 16px;
-  padding: 20px;
+    radial-gradient(circle at top right, rgba(143, 220, 255, 0.06) 0%, transparent 18%),
+    linear-gradient(180deg, rgba(9, 26, 58, 0.96), rgba(4, 14, 36, 0.96));
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  border-radius: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 36px rgba(0, 0, 0, 0.14);
 }
 
 .analyticsHeader {
@@ -269,7 +280,7 @@
 .analyticsKicker {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #7ab6ff;
+  color: #9edaff;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -314,7 +325,7 @@
 }
 
 .chartTrack {
-  height: 9px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   overflow: hidden;
@@ -323,8 +334,8 @@
 .chartFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #2bb7d8, #4a7fdb);
-  box-shadow: 0 0 18px rgba(74, 127, 219, 0.22);
+  background: linear-gradient(90deg, #8fdcff, #4a7fdb);
+  box-shadow: 0 0 22px rgba(74, 127, 219, 0.26);
 }
 
 .analyticsFooter {
@@ -343,9 +354,9 @@
 }
 
 .metricBox {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -374,13 +385,15 @@
 
 .trendCard {
   background:
-    linear-gradient(180deg, rgba(9, 26, 58, 0.94), rgba(4, 14, 36, 0.94));
-  border: 1px solid rgba(74, 127, 219, 0.14);
-  border-radius: 16px;
-  padding: 20px;
+    radial-gradient(circle at top right, rgba(143, 220, 255, 0.05) 0%, transparent 16%),
+    linear-gradient(180deg, rgba(9, 26, 58, 0.96), rgba(4, 14, 36, 0.98));
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  border-radius: 20px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.16);
 }
 
 .trendHeader {
@@ -554,15 +567,19 @@
 
 /* ── Email card ── */
 .emailCard {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(10, 23, 51, 0.86), rgba(6, 15, 33, 0.92));
+  border: 1px solid rgba(99, 129, 173, 0.16);
+  border-radius: 18px;
   overflow: hidden;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
 }
 
 .emailCard:hover {
-  border-color: var(--panel-border-hover);
+  border-color: rgba(143, 220, 255, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 22px 34px rgba(0, 0, 0, 0.16);
 }
 
 .emailCard.resolved {
@@ -574,7 +591,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(61, 86, 117, 0.15);
+  border-bottom: 1px solid rgba(99, 129, 173, 0.12);
   gap: 12px;
 }
 
@@ -614,8 +631,8 @@
   padding: 16px 20px;
   font-size: 0.82rem;
   color: var(--text-soft);
-  line-height: 1.6;
-  border-bottom: 1px solid rgba(61, 86, 117, 0.15);
+  line-height: 1.7;
+  border-bottom: 1px solid rgba(99, 129, 173, 0.12);
 }
 
 .emailBody strong {
@@ -634,8 +651,8 @@
   align-items: center;
   gap: 24px;
   padding: 14px 20px;
-  background: rgba(61, 86, 117, 0.12);
-  border-bottom: 1px solid rgba(61, 86, 117, 0.15);
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid rgba(99, 129, 173, 0.12);
   flex-wrap: wrap;
 }
 
@@ -690,7 +707,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 16px 20px;
   gap: 12px;
 }
 
@@ -714,10 +731,10 @@
 
 .rejectInput {
   flex: 1;
-  background: rgba(1, 24, 66, 0.7);
-  border: 1px solid rgba(61, 86, 117, 0.4);
-  border-radius: 8px;
-  padding: 8px 12px;
+  background: rgba(1, 24, 66, 0.82);
+  border: 1px solid rgba(99, 129, 173, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
   font-size: 0.78rem;
   color: var(--light-main);
   outline: none;
@@ -740,10 +757,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 18px;
+  padding: 10px 18px;
   background: rgba(62, 207, 142, 0.12);
   border: 1px solid rgba(62, 207, 142, 0.3);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--green);
   font-size: 0.8rem;
   font-weight: 600;
@@ -760,10 +777,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 18px;
+  padding: 10px 18px;
   background: rgba(224, 92, 126, 0.1);
   border: 1px solid rgba(224, 92, 126, 0.25);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--red);
   font-size: 0.8rem;
   font-weight: 600;
@@ -813,9 +830,9 @@
   justify-content: center;
   gap: 12px;
   padding: 56px 24px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(10, 23, 51, 0.84), rgba(6, 15, 33, 0.9));
+  border: 1px solid rgba(99, 129, 173, 0.16);
+  border-radius: 18px;
   text-align: center;
 }
 

@@ -3,10 +3,10 @@
   min-width: 230px;
   height: 100vh;
   background:
-    radial-gradient(circle at 12% 10%, rgba(74, 127, 219, 0.16) 0%, transparent 22%),
-    linear-gradient(180deg, rgba(1, 18, 47, 0.95) 0%, rgba(1, 24, 66, 0.98) 100%);
-  border-right: 1px solid rgba(61, 86, 117, 0.25);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+    radial-gradient(circle at 12% 10%, rgba(143, 220, 255, 0.12) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(2, 13, 34, 0.98) 0%, rgba(2, 20, 52, 0.98) 56%, rgba(1, 18, 44, 1) 100%);
+  border-right: 1px solid rgba(99, 129, 173, 0.22);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04), 18px 0 40px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -26,61 +26,64 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 16px 22px 18px;
-  border-bottom: 1px solid rgba(61, 86, 117, 0.2);
-  min-height: 72px;
+  padding: 24px 18px 22px 20px;
+  border-bottom: 1px solid rgba(99, 129, 173, 0.16);
+  min-height: 78px;
   position: relative;
 }
 
 .logoWrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   overflow: hidden;
   min-width: 0;
 }
 
 .logoMark {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
   flex-shrink: 0;
+  filter: drop-shadow(0 10px 16px rgba(10, 78, 138, 0.24));
 }
 
 .logoTextImage {
-  height: 24px;
+  height: 26px;
   width: auto;
   object-fit: contain;
-  max-width: 148px;
+  max-width: 154px;
   filter: brightness(0) invert(1);
-  opacity: 0.96;
+  opacity: 0.98;
 }
 
 .collapseBtn {
-  background: transparent;
-  border: none;
-  color: rgba(232, 225, 219, 0.35);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(99, 129, 173, 0.14);
+  color: rgba(232, 225, 219, 0.5);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
-  transition: color 0.2s, background 0.2s;
+  transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.2s;
   flex-shrink: 0;
 }
 
 .collapseBtn:hover {
-  color: var(--accent);
-  background: rgba(74, 127, 219, 0.1);
+  color: #fff;
+  background: rgba(74, 127, 219, 0.18);
+  border-color: rgba(143, 220, 255, 0.24);
+  transform: translateY(-1px);
 }
 
 /* Nav */
 .nav {
   flex: 1;
-  padding: 12px 8px;
+  padding: 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
   overflow-y: auto;
 }
 
@@ -89,13 +92,13 @@
   align-items: center;
   gap: 11px;
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: transparent;
-  border: none;
-  color: rgba(232, 225, 219, 0.5);
-  font-size: 0.85rem;
-  font-weight: 500;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid transparent;
+  color: rgba(232, 225, 219, 0.54);
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -105,20 +108,23 @@
 }
 
 .navItem:hover {
-  background: rgba(74, 127, 219, 0.1);
-  color: rgba(232, 225, 219, 0.85);
-  transform: translateX(2px);
+  background: rgba(74, 127, 219, 0.12);
+  border-color: rgba(143, 220, 255, 0.16);
+  color: rgba(232, 225, 219, 0.88);
+  transform: translateX(3px);
 }
 
 .navActive {
-  background: linear-gradient(135deg, rgba(74, 127, 219, 0.2), rgba(74, 127, 219, 0.1));
-  color: #5d91e5 !important;
-  border: 1px solid rgba(74, 127, 219, 0.2);
-  box-shadow: 0 14px 30px rgba(6, 13, 28, 0.24);
+  background:
+    linear-gradient(135deg, rgba(74, 127, 219, 0.24), rgba(27, 60, 110, 0.3)),
+    rgba(255, 255, 255, 0.02);
+  color: #ddecff !important;
+  border: 1px solid rgba(123, 188, 255, 0.24);
+  box-shadow: 0 16px 30px rgba(6, 13, 28, 0.32);
 }
 
 .navActive .navIcon {
-  color: #4a7fdb;
+  color: #8fdcff;
 }
 
 .navActive::before {
@@ -127,9 +133,9 @@
   left: 0;
   top: 8px;
   bottom: 8px;
-  width: 3px;
+  width: 4px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #6eb8ff 0%, #2ebce6 100%);
+  background: linear-gradient(180deg, #b4e7ff 0%, #2ebce6 100%);
 }
 
 .navIcon {
@@ -137,6 +143,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 20px;
 }
 
 .navLabel {
@@ -145,14 +152,15 @@
 }
 
 .badge {
-  background: #4a7fdb;
+  background: linear-gradient(135deg, #68b8ff, #2c76d0);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;
   border-radius: 999px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   min-width: 18px;
   text-align: center;
+  box-shadow: 0 8px 18px rgba(44, 118, 208, 0.28);
 }
 
 .badgeDot {
@@ -170,17 +178,17 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 12px;
-  border-top: 1px solid rgba(61, 86, 117, 0.2);
-  background: rgba(1, 12, 30, 0.4);
-  backdrop-filter: blur(12px);
+  padding: 16px 14px 18px;
+  border-top: 1px solid rgba(99, 129, 173, 0.16);
+  background: linear-gradient(180deg, rgba(3, 11, 29, 0.46), rgba(4, 15, 40, 0.68));
+  backdrop-filter: blur(14px);
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #3a72d0, #4a7fdb);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #68b8ff, #2a75cf);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,7 +196,8 @@
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  box-shadow: 0 12px 20px rgba(42, 117, 207, 0.28);
 }
 
 .userInfo {
@@ -201,7 +210,7 @@
 
 .userName {
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--light-main);
   white-space: nowrap;
   overflow: hidden;
@@ -212,8 +221,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
+  letter-spacing: 0.04em;
 }
 
 .planDot {
@@ -243,7 +253,7 @@
 
 .sidebar.collapsed .logoArea {
   justify-content: center;
-  padding: 18px 10px 16px;
+  padding: 18px 10px 14px;
 }
 
 .sidebar.collapsed .logoWrap {
@@ -252,30 +262,30 @@
 }
 
 .sidebar.collapsed .logoMark {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
 }
 
 .sidebar.collapsed .collapseBtn {
   position: absolute;
   top: 12px;
   right: 8px;
-  padding: 3px;
-  color: rgba(232, 225, 219, 0.24);
+  padding: 4px;
+  color: rgba(232, 225, 219, 0.34);
 }
 
 .sidebar.collapsed .nav {
   align-items: center;
-  padding: 14px 6px 18px;
+  padding: 16px 6px 18px;
   gap: 8px;
 }
 
 .sidebar.collapsed .navItem {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   justify-content: center;
   padding: 0;
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .sidebar.collapsed .badgeDot {

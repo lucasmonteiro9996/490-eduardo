@@ -7,6 +7,7 @@ import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
+import { isRealPaymentsEnabled, tokenizeRealCard } from '../lib/paymentGateway.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
 import styles from './Dashboard.module.css'
 
@@ -277,14 +278,14 @@ function DashboardActions({ onDeposit, onWithdraw, onStatement }) {
   const { t } = usePreferences()
   return (
     <div className={styles.dashboardActions}>
-      <button className={`${styles.dashboardActionBtn} ${styles.actionGreen} corner-box`} type="button" onClick={onDeposit}>
-        {t('deposit')}
+      <button className={`${styles.dashboardActionBtn} ${styles.actionGreen}`} type="button" onClick={onDeposit}>
+        <span className={styles.actionText}>{t('deposit')}</span>
       </button>
-      <button className={`${styles.dashboardActionBtn} ${styles.actionOrange} corner-box`} type="button" onClick={onWithdraw}>
-        {t('withdraw')}
+      <button className={`${styles.dashboardActionBtn} ${styles.actionOrange}`} type="button" onClick={onWithdraw}>
+        <span className={styles.actionText}>{t('withdraw')}</span>
       </button>
-      <button className={`${styles.dashboardActionBtn} ${styles.actionBlue} corner-box`} type="button" onClick={onStatement}>
-        {t('statement')}
+      <button className={`${styles.dashboardActionBtn} ${styles.actionBlue}`} type="button" onClick={onStatement}>
+        <span className={styles.actionText}>{t('statement')}</span>
       </button>
     </div>
   )
@@ -510,7 +511,7 @@ function formatCardExpiry(value = '') {
   return `${digits.slice(0, 2)}/${digits.slice(2)}`
 }
 
-function AddCardPanel({ defaultHolder, onAddCard }) {
+function AddCardPanel({ defaultHolder, defaultEmail, userUid, onAddCard }) {
   const { t } = usePreferences()
   const [form, setForm] = useState({
     holder: defaultHolder || '',
@@ -519,15 +520,20 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
     cvv: '',
     currency: 'BRL',
     limit: '',
+    cpfCnpj: '',
+    postalCode: '',
+    addressNumber: '',
+    mobilePhone: '',
   })
   const [feedback, setFeedback] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
     setFeedback('')
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
     const holder = String(form.holder || '').trim().toUpperCase()
@@ -542,16 +548,62 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
       return
     }
 
-    onAddCard({
+    let providerToken = null
+    let providerCustomerId = null
+
+    if (isRealPaymentsEnabled()) {
+      if (!form.cpfCnpj || !form.postalCode || !form.addressNumber || !form.mobilePhone || !defaultEmail) {
+        setFeedback('Para salvar um cartao real, preencha CPF, CEP, numero e celular.')
+        return
+      }
+
+      setSubmitting(true)
+      try {
+        const tokenized = await tokenizeRealCard({
+          userUid,
+          brand: detectCardBrand(digits),
+          creditCard: {
+            holderName: holder,
+            number: digits,
+            expiryMonth: valid.slice(0, 2),
+            expiryYear: `20${valid.slice(3)}`,
+            ccv,
+          },
+          holderInfo: {
+            name: holder,
+            email: defaultEmail,
+            cpfCnpj: form.cpfCnpj,
+            postalCode: form.postalCode,
+            addressNumber: form.addressNumber,
+            mobilePhone: form.mobilePhone,
+          },
+        })
+
+        providerToken = tokenized.creditCardToken
+        providerCustomerId = tokenized.customerId
+      } catch (error) {
+        setFeedback(error.message || 'Nao foi possivel tokenizar o cartao agora.')
+        setSubmitting(false)
+        return
+      }
+    }
+
+    await onAddCard({
       id: `local-card-${Date.now()}`,
       brand: detectCardBrand(digits),
       holder,
-      number,
+      number: `**** **** **** ${digits.slice(-4)}`,
       valid,
-      cvv: '*'.repeat(cvv.length),
+      cvv: '***',
       currency: form.currency,
       limit: form.currency === 'BRL' ? `R$ ${limitValue}` : `$ ${limitValue}`,
       status: 'Ativo',
+      cpfCnpj: form.cpfCnpj.replace(/\D/g, ''),
+      postalCode: form.postalCode.replace(/\D/g, ''),
+      addressNumber: form.addressNumber,
+      mobilePhone: form.mobilePhone.replace(/\D/g, ''),
+      providerToken,
+      providerCustomerId,
     })
 
     setForm((current) => ({
@@ -561,8 +613,13 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
       valid: '',
       cvv: '',
       limit: '',
+      cpfCnpj: '',
+      postalCode: '',
+      addressNumber: '',
+      mobilePhone: '',
     }))
-    setFeedback(t('card_added_ok'))
+    setFeedback(providerToken ? 'Cartao tokenizado e salvo com sucesso.' : t('card_added_ok'))
+    setSubmitting(false)
   }
 
   return (
@@ -646,10 +703,57 @@ function AddCardPanel({ defaultHolder, onAddCard }) {
           </label>
         </div>
 
+        <div className={styles.cardFieldRow}>
+          <label className={styles.cardField}>
+            <span>CPF/CNPJ do titular</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.cpfCnpj}
+              onChange={(event) => updateField('cpfCnpj', event.target.value.replace(/[^\d]/g, '').slice(0, 14))}
+              placeholder="Somente numeros"
+            />
+          </label>
+
+          <label className={styles.cardField}>
+            <span>Celular</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.mobilePhone}
+              onChange={(event) => updateField('mobilePhone', event.target.value.replace(/[^\d]/g, '').slice(0, 11))}
+              placeholder="DDD + numero"
+            />
+          </label>
+        </div>
+
+        <div className={styles.cardFieldRow}>
+          <label className={styles.cardField}>
+            <span>CEP</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.postalCode}
+              onChange={(event) => updateField('postalCode', event.target.value.replace(/[^\d]/g, '').slice(0, 8))}
+              placeholder="Somente numeros"
+            />
+          </label>
+
+          <label className={styles.cardField}>
+            <span>Numero do endereco</span>
+            <input
+              type="text"
+              value={form.addressNumber}
+              onChange={(event) => updateField('addressNumber', event.target.value.slice(0, 12))}
+              placeholder="Numero"
+            />
+          </label>
+        </div>
+
         {feedback ? <p className={styles.cardComposerMessage}>{feedback}</p> : null}
 
-        <button type="submit" className={styles.cardComposerButton}>
-          {t('add_card_btn')}
+        <button type="submit" className={styles.cardComposerButton} disabled={submitting}>
+          {submitting ? 'Tokenizando...' : t('add_card_btn')}
         </button>
       </form>
 
@@ -740,6 +844,47 @@ function PreferencesPanel() {
   )
 }
 
+function maskDigits(value = '', visible = 4) {
+  const normalized = String(value || '')
+  if (!normalized) return 'Nao informado'
+  if (normalized.length <= visible) return normalized
+  return `${'*'.repeat(Math.max(0, normalized.length - visible))}${normalized.slice(-visible)}`
+}
+
+function BankAccountsPanel({ accounts }) {
+  const primaryAccount = accounts?.[0]
+
+  if (!primaryAccount) {
+    return (
+      <div className={styles.walletList}>
+        <div className={`${styles.walletItem} corner-box`}>
+          <div className={styles.walletInfo}>
+            <span className={styles.walletAmount}>Dados bancarios</span>
+            <span className={styles.walletName}>O primeiro saque via TED salva a conta automaticamente para os proximos acessos.</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.walletList}>
+      <div className={`${styles.walletItem} corner-box`}>
+        <div className={styles.walletInfo}>
+          <span className={styles.walletAmount}>{primaryAccount.ownerName || 'Titular principal'}</span>
+          <span className={styles.walletName}>
+            Banco {primaryAccount.bankCode || '---'} · Agencia {primaryAccount.agency || '---'} · Conta {maskDigits(primaryAccount.account)}-{primaryAccount.accountDigit || '0'}
+          </span>
+        </div>
+        <div className={styles.walletRight}>
+          <span className={styles.walletUsd}>{primaryAccount.label || 'TED'}</span>
+          <span className={styles.walletChange}>{primaryAccount.bankAccountType === 'SAVINGS_ACCOUNT' ? 'Poupanca' : 'Corrente'}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Notificações do usuário (respostas do admin) ─────────────────────────────
 
 function UserNotifications({ notifications, onDismiss }) {
@@ -817,8 +962,6 @@ export default function WorkspacePage({ pageKey }) {
   const toast = useToast()
   const { t, language } = usePreferences()
   const [modal, setModal] = useState(null)
-  const [localCards, setLocalCards] = useState([])
-  const [deletedCardIds, setDeletedCardIds] = useState([])
 
   const pageTitleKey = {
     home: 'page_home',
@@ -841,9 +984,9 @@ export default function WorkspacePage({ pageKey }) {
   const userName = user?.displayName || user?.email || 'Cliente Ocean Capital'
   const dateLabel = new Date().toLocaleDateString(LOCALE_MAP[language] || 'pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  function handleConfirm(payload) {
+  async function handleConfirm(payload) {
     if (modal === 'deposit') {
-      workspace.submitRequest({ type: 'deposit', ...payload })
+      await workspace.submitRequest({ type: 'deposit', ...payload })
       toast.push({
         type: 'info',
         title: 'Solicitação enviada ao administrador',
@@ -851,7 +994,7 @@ export default function WorkspacePage({ pageKey }) {
         duration: 6000,
       })
     } else if (modal === 'withdraw') {
-      workspace.submitRequest({ type: 'withdraw', ...payload })
+      await workspace.submitRequest({ type: 'withdraw', ...payload })
       toast.push({
         type: 'info',
         title: 'Solicitação enviada ao administrador',
@@ -873,16 +1016,15 @@ export default function WorkspacePage({ pageKey }) {
     openStatementPdf(workspace.transactions.data, { owner: userName })
   }
 
-  function handleAddCard(card) {
-    setLocalCards((current) => [card, ...current])
+  async function handleAddCard(card) {
+    await workspace.addCard(card)
   }
 
-  function handleDeleteCard(card) {
-    setLocalCards((current) => current.filter((item) => item.id !== card.id))
-    setDeletedCardIds((current) => (current.includes(card.id) ? current : [...current, card.id]))
+  async function handleDeleteCard(card) {
+    await workspace.removeCard(card.id)
   }
 
-  const cardsData = [...localCards, ...workspace.cards.data].filter((card) => !deletedCardIds.includes(card.id))
+  const cardsData = workspace.cards.data.filter((card) => !card.deleted)
 
   return (
     <div className={styles.main}>
@@ -953,7 +1095,12 @@ export default function WorkspacePage({ pageKey }) {
           <>
             <CardsSummary cards={cardsData} />
             <SectionCard title={t('section_add_card')}>
-              <AddCardPanel defaultHolder={userName} onAddCard={handleAddCard} />
+              <AddCardPanel
+                defaultHolder={userName}
+                defaultEmail={user?.email || ''}
+                userUid={user?.uid || ''}
+                onAddCard={handleAddCard}
+              />
             </SectionCard>
             <SectionCard title={t('section_cards')}>
               <CardsGallery cards={cardsData} onDeleteCard={handleDeleteCard} />
@@ -971,6 +1118,9 @@ export default function WorkspacePage({ pageKey }) {
             <SectionCard title={t('section_preferences')}>
               <PreferencesPanel />
             </SectionCard>
+            <SectionCard title="Dados bancarios salvos">
+              <BankAccountsPanel accounts={workspace.bankAccounts.data} />
+            </SectionCard>
             <SectionCard title={t('section_security')}>
               <SimpleList items={workspace.securityEvents.data} />
             </SectionCard>
@@ -983,6 +1133,8 @@ export default function WorkspacePage({ pageKey }) {
         open={modal === 'deposit' || modal === 'withdraw'}
         onClose={() => setModal(null)}
         onConfirm={handleConfirm}
+        initialBankAccount={workspace.bankAccounts.data?.[0] || null}
+        savedCards={cardsData}
       />
     </div>
   )

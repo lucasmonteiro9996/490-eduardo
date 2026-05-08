@@ -24,6 +24,7 @@ import {
   sendWithdrawRequestToAdmin,
 } from '../lib/mockEmailService.js'
 import { ADMIN_NOTIFICATION_EMAIL, sendAdminApprovalRequestEmail } from '../lib/emailService.js'
+import { createRealDepositCharge, isRealPaymentsEnabled } from '../lib/paymentGateway.js'
 import { useAuth } from './AuthContext.jsx'
 
 const WorkspaceContext = createContext(null)
@@ -112,6 +113,7 @@ export function WorkspaceProvider({ children }) {
     wallets: { data: [], status: 'loading' },
     transactions: { data: [], status: 'loading' },
     cards: { data: [], status: 'loading' },
+    bankAccounts: { data: [], status: 'loading' },
     exchangeRates: { data: [], status: 'loading' },
     securityEvents: { data: [], status: 'loading' },
     settings: { data: [], status: 'loading' },
@@ -225,8 +227,74 @@ export function WorkspaceProvider({ children }) {
     }))
   }, [])
 
+  const addCard = useCallback(async (card) => {
+    const cardId = card?.id || `card-${Date.now()}`
+    const payload = {
+      ...card,
+      id: cardId,
+      createdAtLabel: nowLabel(),
+      deleted: false,
+    }
+
+    setState((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        data: [payload, ...prev.cards.data.filter((item) => item.id !== cardId && !item.deleted)],
+      },
+    }))
+
+    if (!canUseRealtimeFlow || !user?.uid || demoMode) {
+      return payload
+    }
+
+    await setDoc(doc(db, 'users', user.uid, 'cards', cardId), {
+      ...payload,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+
+    return payload
+  }, [canUseRealtimeFlow, demoMode, user?.uid])
+
+  const removeCard = useCallback(async (cardId) => {
+    setState((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        data: prev.cards.data.filter((item) => item.id !== cardId),
+      },
+    }))
+
+    if (!canUseRealtimeFlow || !user?.uid || demoMode || !cardId) {
+      return
+    }
+
+    await setDoc(doc(db, 'users', user.uid, 'cards', cardId), {
+      deleted: true,
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+  }, [canUseRealtimeFlow, demoMode, user?.uid])
+
+  const upsertBankAccountState = useCallback((bankProfile) => {
+    if (!bankProfile?.id) return
+
+    setState((prev) => {
+      const exists = prev.bankAccounts.data.some((item) => item.id === bankProfile.id)
+      return {
+        ...prev,
+        bankAccounts: {
+          ...prev.bankAccounts,
+          data: exists
+            ? prev.bankAccounts.data.map((item) => (item.id === bankProfile.id ? { ...item, ...bankProfile } : item))
+            : [bankProfile, ...prev.bankAccounts.data],
+        },
+      }
+    })
+  }, [])
+
   const submitRequest = useCallback(
-    async ({ type, symbol, amount, source, destination }) => {
+    async ({ type, symbol, amount, source, destination, payoutDetails, selectedCardId }) => {
       const numeric = Number(amount) || 0
       if (numeric <= 0) return null
 
@@ -269,9 +337,29 @@ export function WorkspaceProvider({ children }) {
         userName,
         status: 'pending',
         createdAtLabel,
+        payoutDetails: payoutDetails || null,
+        selectedCardId: selectedCardId || null,
       }
 
+      const bankProfile = payoutDetails?.bankAccount
+        ? {
+            id: 'primary-bank-account',
+            label: payoutDetails.method || 'TED',
+            ownerName: payoutDetails.bankAccount.ownerName || '',
+            cpfCnpj: payoutDetails.bankAccount.cpfCnpj || '',
+            bankCode: payoutDetails.bankAccount.bankCode || '',
+            agency: payoutDetails.bankAccount.agency || '',
+            account: payoutDetails.bankAccount.account || '',
+            accountDigit: payoutDetails.bankAccount.accountDigit || '',
+            bankAccountType: payoutDetails.bankAccount.bankAccountType || 'CHECKING_ACCOUNT',
+            updatedAtLabel: createdAtLabel,
+          }
+        : null
+
       if (!canUseRealtimeFlow || !user?.uid || demoMode) {
+        if (bankProfile) {
+          upsertBankAccountState(bankProfile)
+        }
         setAdminRequests((prev) => [requestPayload, ...prev])
         setUserRequests((prev) => [requestPayload, ...prev])
 
@@ -286,6 +374,7 @@ export function WorkspaceProvider({ children }) {
 
       const txRef = doc(db, 'users', user.uid, 'transactions', txId)
       const requestRef = doc(collection(db, 'adminRequests'))
+      const bankRef = bankProfile ? doc(db, 'users', user.uid, 'bankAccounts', bankProfile.id) : null
 
       await setDoc(txRef, {
         ...tx,
@@ -302,6 +391,15 @@ export function WorkspaceProvider({ children }) {
         emailProvider: 'emailjs',
         adminEmail: ADMIN_NOTIFICATION_EMAIL,
       })
+
+      if (bankProfile && bankRef) {
+        await setDoc(bankRef, {
+          ...bankProfile,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+        upsertBankAccountState(bankProfile)
+      }
 
       const emailResult = await sendAdminApprovalRequestEmail({
         requestId: requestRef.id,
@@ -327,7 +425,7 @@ export function WorkspaceProvider({ children }) {
         emailStatus: emailResult.ok ? 'sent' : emailResult.skipped ? 'skipped' : 'failed',
       }
     },
-    [addTransaction, canUseRealtimeFlow, demoMode, state.wallets.data, user],
+    [addTransaction, canUseRealtimeFlow, demoMode, state.wallets.data, upsertBankAccountState, user],
   )
 
   const approveRequest = useCallback(
@@ -336,6 +434,34 @@ export function WorkspaceProvider({ children }) {
       if (!req) return
 
       const resolvedAtLabel = nowLabel()
+      const savedCard = req.selectedCardId ? state.cards.data.find((item) => item.id === req.selectedCardId) : null
+      let paymentResult = null
+
+      if (
+        req.type === 'deposit'
+        && req.symbol === 'BRL'
+        && String(req.source || '').toLowerCase().includes('cart')
+        && savedCard?.providerToken
+        && isRealPaymentsEnabled()
+      ) {
+        paymentResult = await createRealDepositCharge({
+          requestId: req.requestId,
+          userUid: req.userUid,
+          userName: req.userName,
+          userEmail: req.userEmail,
+          symbol: req.symbol,
+          amount: req.amount,
+          source: req.source,
+          card: {
+            id: savedCard.id,
+            providerToken: savedCard.providerToken,
+            cpfCnpj: savedCard.cpfCnpj,
+            mobilePhone: savedCard.mobilePhone,
+            postalCode: savedCard.postalCode,
+            addressNumber: savedCard.addressNumber,
+          },
+        })
+      }
 
       if (!canUseRealtimeFlow || !req.userUid || demoMode) {
         const delta = req.type === 'deposit' ? req.amount : -req.amount
@@ -530,6 +656,7 @@ export function WorkspaceProvider({ children }) {
       wallets: state.wallets,
       transactions: state.transactions,
       cards: state.cards,
+      bankAccounts: state.bankAccounts,
       exchangeRates: state.exchangeRates,
       securityEvents: state.securityEvents,
       settings: state.settings,
@@ -542,6 +669,8 @@ export function WorkspaceProvider({ children }) {
       rejectRequest,
       refreshUserNotifications,
       dismissNotification,
+      addCard,
+      removeCard,
       deposit,
       withdraw,
     }),
@@ -556,6 +685,8 @@ export function WorkspaceProvider({ children }) {
       rejectRequest,
       refreshUserNotifications,
       dismissNotification,
+      addCard,
+      removeCard,
       deposit,
       withdraw,
     ],

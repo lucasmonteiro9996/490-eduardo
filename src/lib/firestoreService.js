@@ -13,6 +13,7 @@ const FALLBACK_DATA = {
   wallets: mockWallets,
   transactions: mockTransactions,
   cards: mockCards,
+  bankAccounts: [],
   exchangeRates: mockRates,
   securityEvents: mockSecurityEvents,
   settings: mockSettings,
@@ -56,10 +57,11 @@ async function readCollection(uid, collectionName, size = 12) {
 }
 
 export async function loadWorkspaceData(uid) {
-  const [wallets, transactions, cards, exchangeRates, securityEvents, settings] = await Promise.all([
+  const [wallets, transactions, cards, bankAccounts, exchangeRates, securityEvents, settings] = await Promise.all([
     readCollection(uid, 'wallets'),
     readCollection(uid, 'transactions'),
     readCollection(uid, 'cards'),
+    readCollection(uid, 'bankAccounts'),
     readCollection(uid, 'exchangeRates'),
     readCollection(uid, 'securityEvents'),
     readCollection(uid, 'settings'),
@@ -69,6 +71,7 @@ export async function loadWorkspaceData(uid) {
     wallets,
     transactions,
     cards,
+    bankAccounts,
     exchangeRates,
     securityEvents,
     settings,
