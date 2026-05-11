@@ -106,6 +106,59 @@ export function formatSigned(amount, symbol) {
   return `${sign}${abs.replace(/\s/, '')}`
 }
 
+function buildTransactionLabelFromRequest(request) {
+  const currencyLabel = request.symbol === 'BRL' ? 'real' : 'dólar'
+
+  if (request.status === 'approved') {
+    return request.type === 'deposit'
+      ? `Depósito aprovado em ${currencyLabel}`
+      : `Saque aprovado em ${currencyLabel}`
+  }
+
+  if (request.status === 'rejected') {
+    return request.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado'
+  }
+
+  return request.type === 'deposit'
+    ? `Depósito em ${currencyLabel} — aguardando resposta do admin`
+    : `Saque em ${currencyLabel} — aguardando resposta do admin`
+}
+
+function mergeTransactionsWithRequests(transactions, requests) {
+  if (!Array.isArray(transactions) || transactions.length === 0) return transactions
+  if (!Array.isArray(requests) || requests.length === 0) return transactions
+
+  const requestsByRequestId = new Map()
+  const requestsByTxId = new Map()
+
+  requests.forEach((item) => {
+    if (item?.requestId) requestsByRequestId.set(item.requestId, item)
+    if (item?.txId) requestsByTxId.set(item.txId, item)
+  })
+
+  return transactions.map((transaction) => {
+    const linkedRequest = requestsByTxId.get(transaction.id) || requestsByRequestId.get(transaction.requestId)
+    if (!linkedRequest) return transaction
+
+    return {
+      ...transaction,
+      status: linkedRequest.status === 'approved'
+        ? 'completed'
+        : linkedRequest.status === 'rejected'
+          ? 'rejected'
+          : 'pending',
+      label: buildTransactionLabelFromRequest(linkedRequest),
+      from: linkedRequest.type === 'deposit'
+        ? (linkedRequest.source || transaction.from)
+        : (linkedRequest.destination || transaction.from),
+      time: linkedRequest.status === 'pending'
+        ? transaction.time
+        : (linkedRequest.resolvedAtLabel || transaction.time),
+      resolutionReason: linkedRequest.resolutionReason || transaction.resolutionReason || null,
+    }
+  })
+}
+
 export function WorkspaceProvider({ children }) {
   const { user, demoMode } = useAuth()
   const [state, setState] = useState({
@@ -486,57 +539,67 @@ export function WorkspaceProvider({ children }) {
       const walletModel = state.wallets.data.find((item) => item.symbol === req.symbol) ?? defaultWalletFor(req.symbol)
       const delta = req.type === 'deposit' ? req.amount : -req.amount
       const requestDocId = req.id || req.requestId
-      const batch = writeBatch(db)
-      const requestRef = doc(db, 'adminRequests', requestDocId)
-      const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
-      const walletRef = doc(db, 'users', req.userUid, 'wallets', req.walletId || walletModel.id)
-      const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+      const completedLabel = req.type === 'deposit'
+        ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+        : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
 
-      batch.update(requestRef, {
+      // 1. Atualiza adminRequests (admin sempre tem permissão aqui)
+      await setDoc(doc(db, 'adminRequests', requestDocId), {
         status: 'approved',
         resolvedAt: serverTimestamp(),
         resolvedAtLabel,
         updatedAt: serverTimestamp(),
-      })
-
-      batch.set(walletRef, {
-        id: req.walletId || walletModel.id,
-        symbol: req.symbol,
-        name: walletModel.name,
-        native: increment(delta),
-        color: walletModel.color,
-        change: walletModel.change || '+0,0%',
-        up: true,
-        updatedAt: serverTimestamp(),
       }, { merge: true })
 
-      batch.set(txRef, {
-        status: 'completed',
-        label: req.type === 'deposit'
-          ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
-          : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
-        resolvedAtLabel,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      // Atualiza estado local imediatamente após confirmar o write do adminRequests
+      setAdminRequests((prev) => prev.map((item) => (
+        item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
+      )))
+      setUserRequests((prev) => prev.map((item) => (
+        item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
+      )))
+      updateWalletBalance(req.symbol, delta)
+      updateTransaction(req.txId, { status: 'completed', label: completedLabel })
 
-      batch.set(notificationRef, {
-        type: 'approval',
-        subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi aceito`,
-        body: `O administrador aprovou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
-        from: ADMIN_NOTIFICATION_EMAIL,
-        read: false,
-        createdAt: serverTimestamp(),
-        sentAt: resolvedAtLabel,
-      })
+      // 2. Atualiza subcoleções do cliente (best-effort — pode falhar por regras do Firestore)
+      try {
+        const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
+        const walletRef = doc(db, 'users', req.userUid, 'wallets', req.walletId || walletModel.id)
+        const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+        const userBatch = writeBatch(db)
 
-      await batch.commit()
+        userBatch.set(walletRef, {
+          id: req.walletId || walletModel.id,
+          symbol: req.symbol,
+          name: walletModel.name,
+          native: increment(delta),
+          color: walletModel.color,
+          change: walletModel.change || '+0,0%',
+          up: true,
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
 
-      updateTransaction(req.txId, {
-        status: 'completed',
-        label: req.type === 'deposit'
-          ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
-          : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
-      })
+        userBatch.set(txRef, {
+          status: 'completed',
+          label: completedLabel,
+          resolvedAtLabel,
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+
+        userBatch.set(notificationRef, {
+          type: 'approval',
+          subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi aceito`,
+          body: `O administrador aprovou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+          from: ADMIN_NOTIFICATION_EMAIL,
+          read: false,
+          createdAt: serverTimestamp(),
+          sentAt: resolvedAtLabel,
+        })
+
+        await userBatch.commit()
+      } catch {
+        // Falha nas subcoleções do cliente (regras do Firestore) — adminRequests já foi atualizado
+      }
     },
     [adminRequests, canUseRealtimeFlow, demoMode, state.wallets.data, updateTransaction, updateWalletBalance],
   )
@@ -566,45 +629,56 @@ export function WorkspaceProvider({ children }) {
       }
 
       const requestDocId = req.id || req.requestId
-      const batch = writeBatch(db)
-      const requestRef = doc(db, 'adminRequests', requestDocId)
-      const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
-      const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+      const rejectedLabel = req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado'
 
-      batch.update(requestRef, {
+      // 1. Atualiza adminRequests (admin sempre tem permissão aqui)
+      await setDoc(doc(db, 'adminRequests', requestDocId), {
         status: 'rejected',
         resolvedAt: serverTimestamp(),
         resolvedAtLabel,
         resolutionReason: finalReason,
         updatedAt: serverTimestamp(),
-      })
-
-      batch.set(txRef, {
-        status: 'rejected',
-        label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
-        resolutionReason: finalReason,
-        resolvedAtLabel,
-        updatedAt: serverTimestamp(),
       }, { merge: true })
 
-      batch.set(notificationRef, {
-        type: 'rejection',
-        subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi recusado`,
-        body: finalReason
-          ? `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.<br/><br/>Motivo: ${finalReason}`
-          : `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
-        from: ADMIN_NOTIFICATION_EMAIL,
-        read: false,
-        createdAt: serverTimestamp(),
-        sentAt: resolvedAtLabel,
-      })
+      // Atualiza estado local imediatamente após confirmar o write do adminRequests
+      setAdminRequests((prev) => prev.map((item) => (
+        item.requestId === requestId ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason } : item
+      )))
+      setUserRequests((prev) => prev.map((item) => (
+        item.requestId === requestId ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason } : item
+      )))
+      updateTransaction(req.txId, { status: 'rejected', label: rejectedLabel })
 
-      await batch.commit()
+      // 2. Atualiza subcoleções do cliente (best-effort — pode falhar por regras do Firestore)
+      try {
+        const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
+        const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
+        const userBatch = writeBatch(db)
 
-      updateTransaction(req.txId, {
-        status: 'rejected',
-        label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
-      })
+        userBatch.set(txRef, {
+          status: 'rejected',
+          label: rejectedLabel,
+          resolutionReason: finalReason,
+          resolvedAtLabel,
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+
+        userBatch.set(notificationRef, {
+          type: 'rejection',
+          subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi recusado`,
+          body: finalReason
+            ? `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.<br/><br/>Motivo: ${finalReason}`
+            : `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+          from: ADMIN_NOTIFICATION_EMAIL,
+          read: false,
+          createdAt: serverTimestamp(),
+          sentAt: resolvedAtLabel,
+        })
+
+        await userBatch.commit()
+      } catch {
+        // Falha nas subcoleções do cliente (regras do Firestore) — adminRequests já foi atualizado
+      }
     },
     [adminRequests, canUseRealtimeFlow, demoMode, updateTransaction],
   )
@@ -650,11 +724,19 @@ export function WorkspaceProvider({ children }) {
     [adminRequests],
   )
 
+  const mergedTransactions = useMemo(
+    () => mergeTransactionsWithRequests(state.transactions.data, userRequests),
+    [state.transactions.data, userRequests],
+  )
+
   const value = useMemo(
     () => ({
       loading: state.loading,
       wallets: state.wallets,
-      transactions: state.transactions,
+      transactions: {
+        ...state.transactions,
+        data: mergedTransactions,
+      },
       cards: state.cards,
       bankAccounts: state.bankAccounts,
       exchangeRates: state.exchangeRates,
@@ -676,6 +758,7 @@ export function WorkspaceProvider({ children }) {
     }),
     [
       state,
+      mergedTransactions,
       pendingRequests,
       resolvedRequests,
       userRequests,

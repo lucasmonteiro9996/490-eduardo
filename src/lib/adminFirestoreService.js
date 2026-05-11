@@ -1,4 +1,4 @@
-import { collection, getDocs, limit, query } from 'firebase/firestore'
+import { collection, doc, getDocs, increment, limit, query, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, hasFirebaseConfig } from './firebase.js'
 
 const CLIENT_COLORS = ['#4a7fdb', '#3ecf8e', '#a78bfa', '#f5c842', '#34d8b6', '#f97316']
@@ -93,49 +93,184 @@ function mapWallets(items) {
   }))
 }
 
+async function loadClientsFromUsers() {
+  const usersSnapshot = await getDocs(collection(db, 'users'))
+
+  return Promise.all(usersSnapshot.docs.map(async (userDoc, index) => {
+    const userData = userDoc.data()
+    const walletsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'wallets'), limit(20)))
+    const transactionsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'transactions'), limit(80)))
+
+    const wallets = mapWallets(walletsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
+    const transactions = mapTransactions(transactionsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
+    const joinedAt = normalizeTimestamp(userData.createdAt)
+
+    return {
+      id: userDoc.id,
+      name: userData.name || userData.displayName || userData.email || `Cliente ${index + 1}`,
+      email: userData.email || '',
+      phone: userData.phone || userData.telefone || 'Não informado',
+      joinedAt: formatDateLabel(joinedAt),
+      status: userData.status || inferStatus(transactions),
+      tier: userData.tier || inferTier(wallets),
+      avatarInitials: getInitials(userData.name || userData.displayName, userData.email),
+      avatarColor: CLIENT_COLORS[index % CLIENT_COLORS.length],
+      wallets,
+      transactions,
+    }
+  }))
+}
+
+// Fallback: deriva clientes a partir de adminRequests (sempre acessível ao admin)
+async function loadClientsFromRequests() {
+  const requestsSnapshot = await getDocs(
+    query(collection(db, 'adminRequests'), limit(500)),
+  )
+
+  const byUid = new Map()
+
+  requestsSnapshot.docs.forEach((reqDoc, index) => {
+    const req = reqDoc.data()
+    if (!req.userUid) return
+
+    if (!byUid.has(req.userUid)) {
+      byUid.set(req.userUid, {
+        id: req.userUid,
+        name: req.userName || req.userEmail || `Cliente ${byUid.size + 1}`,
+        email: req.userEmail || '',
+        phone: 'Não informado',
+        joinedAt: formatDateLabel(normalizeTimestamp(req.createdAt)),
+        status: 'active',
+        tier: 'Standard',
+        avatarInitials: getInitials(req.userName, req.userEmail),
+        avatarColor: CLIENT_COLORS[byUid.size % CLIENT_COLORS.length],
+        wallets: [],
+        transactions: [],
+        _index: index,
+      })
+    }
+
+    const client = byUid.get(req.userUid)
+    const native = req.type === 'deposit' ? (req.amount || 0) : -(req.amount || 0)
+    const approved = req.status === 'approved'
+
+    client.transactions.push({
+      id: reqDoc.id,
+      type: req.type === 'deposit' ? 'receive' : 'send',
+      label: req.type === 'deposit'
+        ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+        : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
+      from: req.source || req.destination || 'Sistema',
+      amount: formatAmount(native, req.symbol || 'BRL'),
+      currency: req.symbol || 'BRL',
+      native: approved ? native : 0,
+      time: req.createdAtLabel || formatDateLabel(normalizeTimestamp(req.createdAt)),
+      status: req.status === 'approved' ? 'completed' : req.status === 'rejected' ? 'rejected' : 'pending',
+      createdAt: normalizeTimestamp(req.createdAt),
+    })
+
+    // Acumula saldo aprovado por moeda
+    if (approved) {
+      const existing = client.wallets.find((w) => w.symbol === req.symbol)
+      if (existing) {
+        existing.native += native
+      } else {
+        client.wallets.push({
+          symbol: req.symbol || 'BRL',
+          name: req.symbol === 'USD' ? 'Dólar americano' : 'Real brasileiro',
+          native,
+          color: req.symbol === 'USD' ? '#4a7fdb' : '#3ecf8e',
+        })
+      }
+    }
+  })
+
+  return [...byUid.values()].map((client) => ({
+    ...client,
+    status: inferStatus(client.transactions),
+    tier: inferTier(client.wallets),
+    transactions: client.transactions.sort(
+      (a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0),
+    ),
+  }))
+}
+
+export async function adjustClientBalance({ userUid, symbol, delta, note }) {
+  if (!hasFirebaseConfig || !db) throw new Error('Firebase não configurado.')
+  if (!userUid || !symbol || !delta) throw new Error('Dados insuficientes para o ajuste.')
+
+  const walletId = symbol.toLowerCase()
+  const txId = `admin-adj-${Date.now()}`
+  const now = new Date()
+  const timeLabel = now.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const walletRef = doc(db, 'users', userUid, 'wallets', walletId)
+  const txRef = doc(db, 'users', userUid, 'transactions', txId)
+  const notifRef = doc(db, 'users', userUid, 'notifications', `notif-${txId}`)
+
+  await setDoc(walletRef, {
+    id: walletId,
+    symbol,
+    name: symbol === 'USD' ? 'Dólar americano' : 'Real brasileiro',
+    native: increment(delta),
+    color: symbol === 'USD' ? '#4a7fdb' : '#3ecf8e',
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+
+  const sign = delta >= 0 ? '+' : '-'
+  const abs = Math.abs(delta)
+  const formatted = symbol === 'BRL'
+    ? `${sign}R$${abs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    : `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+  await setDoc(txRef, {
+    id: txId,
+    type: delta >= 0 ? 'receive' : 'send',
+    label: delta >= 0 ? `Crédito manual em ${symbol}` : `Débito manual em ${symbol}`,
+    from: note ? `Admin — ${note}` : 'Ajuste administrativo',
+    amount: formatted,
+    currency: symbol,
+    native: delta,
+    time: timeLabel,
+    status: 'completed',
+    createdAt: serverTimestamp(),
+  })
+
+  await setDoc(notifRef, {
+    type: delta >= 0 ? 'approval' : 'rejection',
+    subject: delta >= 0 ? `Crédito de ${formatted} aplicado` : `Débito de ${formatted} aplicado`,
+    body: note
+      ? `O administrador realizou um ajuste manual de <strong>${formatted}</strong> em sua conta. Motivo: ${note}.`
+      : `O administrador realizou um ajuste manual de <strong>${formatted}</strong> em sua conta.`,
+    from: 'siteocn@gmail.com',
+    read: false,
+    createdAt: serverTimestamp(),
+    sentAt: timeLabel,
+  })
+
+  return { txId, formatted, timeLabel }
+}
+
 export async function loadAdminClients() {
   if (!hasFirebaseConfig || !db) {
     return { clients: [], status: 'missing-config' }
   }
 
+  // Tenta leitura completa da coleção users (requer regras permissivas)
   try {
-    const usersSnapshot = await getDocs(collection(db, 'users'))
-
-    const clients = await Promise.all(usersSnapshot.docs.map(async (userDoc, index) => {
-      const userData = userDoc.data()
-      const walletsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'wallets'), limit(20)))
-      const transactionsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'transactions'), limit(80)))
-
-      const wallets = mapWallets(walletsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
-      const transactions = mapTransactions(transactionsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
-      const joinedAt = normalizeTimestamp(userData.createdAt)
-
-      return {
-        id: userDoc.id,
-        name: userData.name || userData.displayName || userData.email || `Cliente ${index + 1}`,
-        email: userData.email || '',
-        phone: userData.phone || userData.telefone || 'Não informado',
-        joinedAt: formatDateLabel(joinedAt),
-        status: userData.status || inferStatus(transactions),
-        tier: userData.tier || inferTier(wallets),
-        avatarInitials: getInitials(userData.name || userData.displayName, userData.email),
-        avatarColor: CLIENT_COLORS[index % CLIENT_COLORS.length],
-        wallets,
-        transactions,
-      }
-    }))
-
-    return {
-      clients,
-      status: 'ready',
+    const clients = await loadClientsFromUsers()
+    return { clients, status: 'ready' }
+  } catch (primaryError) {
+    const code = String(primaryError?.code || '')
+    if (!code.includes('permission-denied') && !code.includes('PERMISSION_DENIED')) {
+      return { clients: [], status: 'error', error: primaryError }
     }
-  } catch (error) {
-    const code = String(error?.code || '')
+  }
 
-    return {
-      clients: [],
-      status: code.includes('permission-denied') ? 'permission-denied' : 'error',
-      error,
-    }
+  // Fallback: lê adminRequests (admin sempre tem acesso) e deriva os clientes
+  try {
+    const clients = await loadClientsFromRequests()
+    return { clients, status: 'ready' }
+  } catch (fallbackError) {
+    return { clients: [], status: 'error', error: fallbackError }
   }
 }

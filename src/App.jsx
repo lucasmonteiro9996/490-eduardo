@@ -11,7 +11,6 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 const AuthPage = lazy(() => import('./pages/AuthPage.jsx'))
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage.jsx'))
-const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage.jsx'))
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
 const AdminClients = lazy(() => import('./pages/AdminClients.jsx'))
 
@@ -48,13 +47,13 @@ export default function App() {
                   <Route path="configuracoes" element={<WorkspacePage pageKey="settings" />} />
                 </Route>
 
-                <Route path="/admin" element={<AdminLoginPage />} />
+                <Route path="/admin" element={<Navigate to="/admin/inbox" replace />} />
                 <Route path="/admin/*" element={<AdminShell />}>
                   <Route path="inbox" element={<AdminPage />} />
                   <Route path="clientes" element={<AdminClients />} />
                 </Route>
 
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
           </ToastProvider>

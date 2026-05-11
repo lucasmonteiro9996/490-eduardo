@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './AuthPage.module.css'
 
@@ -20,15 +20,36 @@ export default function AuthPage() {
   const [authenticating, setAuthenticating] = useState(false)
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotSent, setForgotSent] = useState(false)
+  const [verificationSent, setVerificationSent] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [resendPending, setResendPending] = useState(false)
   const navigate = useNavigate()
-  const location = useLocation()
-  const { user, login, register, resetPassword, hasFirebaseConfig, demoMode } = useAuth()
+  const { user, login, register, resetPassword, resendVerification, logout, hasFirebaseConfig, demoMode } = useAuth()
 
   function switchTab(next) {
     setTab(next)
     setForgotMode(false)
     setForgotSent(false)
+    setVerificationSent(false)
     setErrorMessage('')
+  }
+
+  async function handleResendVerification() {
+    setResendPending(true)
+    setErrorMessage('')
+    try {
+      await resendVerification()
+    } catch (error) {
+      setErrorMessage(error?.message || 'Não foi possível reenviar o e-mail.')
+    } finally {
+      setResendPending(false)
+    }
+  }
+
+  async function handleBackToLogin() {
+    try { await logout() } catch { /* ignore */ }
+    setVerificationSent(false)
+    switchTab('login')
   }
 
   async function handleSubmit(event) {
@@ -72,12 +93,16 @@ export default function AuthPage() {
           await login(email, password)
         } else {
           await register({ name, email, password, cpf })
+          setRegisteredEmail(email)
+          setVerificationSent(true)
+          setPending(false)
+          return
         }
       }
 
       setAuthenticating(true)
       await new Promise((resolve) => setTimeout(resolve, 850))
-      navigate(location.state?.from?.pathname || '/dashboard', { replace: true })
+      navigate(tab === 'login' ? '/admin' : '/dashboard', { replace: true })
     } catch (error) {
       setAuthenticating(false)
       setErrorMessage(error?.message || 'Não foi possível autenticar agora.')
@@ -87,7 +112,11 @@ export default function AuthPage() {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />
+    const isAdmin = String(user.email || '').toLowerCase() === 'siteocn@gmail.com'
+    if (isAdmin || user.emailVerified) {
+      return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
+    }
+    // unverified: fall through to show verification screen
   }
 
   return (
@@ -143,18 +172,43 @@ export default function AuthPage() {
           </button>
         </div>
 
-        <button
-          type="button"
-          className={styles.adminEntry}
-          onClick={() => navigate('/admin')}
-        >
-          Entrar na área administrativa
-        </button>
-
         <form className={styles.form} onSubmit={handleSubmit} autoComplete="off">
 
-          {/* ── Forgot mode: success state ─────────────────────────────── */}
-          {forgotSent ? (
+          {/* ── Email verification pending ─────────────────────────────── */}
+          {verificationSent || (user && !user.emailVerified) ? (
+            <>
+              <div className={styles.forgotSuccess}>
+                <div className={styles.forgotSuccessIcon}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                </div>
+                <span className={styles.forgotSuccessTitle}>Verifique seu e-mail</span>
+                <p className={styles.forgotSuccessDesc}>
+                  Enviamos um link de confirmação para <strong>{registeredEmail || user?.email}</strong>. Acesse sua caixa de entrada e clique no link para ativar sua conta.
+                </p>
+              </div>
+              {errorMessage ? (
+                <p className={styles.termsText} style={{ color: '#ff9db3' }}>{errorMessage}</p>
+              ) : null}
+              <button
+                type="button"
+                className={`${styles.btn} corner-box`}
+                disabled={resendPending}
+                onClick={handleResendVerification}
+              >
+                {resendPending ? 'REENVIANDO...' : 'REENVIAR E-MAIL DE VERIFICAÇÃO'}
+              </button>
+              <button
+                type="button"
+                className={styles.backBtn}
+                onClick={handleBackToLogin}
+              >
+                ← Já verifiquei, fazer login
+              </button>
+            </>
+          ) : forgotSent ? (
             <>
               <div className={styles.forgotSuccess}>
                 <div className={styles.forgotSuccessIcon}>

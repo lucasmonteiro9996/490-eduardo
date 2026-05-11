@@ -38,6 +38,7 @@
   gap: 12px;
   overflow: hidden;
   min-width: 0;
+  flex: 1;
 }
 
 .logoMark {
@@ -52,9 +53,11 @@
   height: 26px;
   width: auto;
   object-fit: contain;
-  max-width: 154px;
+  max-width: 115px;
   filter: brightness(0) invert(1);
   opacity: 0.98;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .collapseBtn {
@@ -252,13 +255,17 @@
 }
 
 .sidebar.collapsed .logoArea {
+  flex-direction: column;
   justify-content: center;
-  padding: 18px 10px 14px;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 12px;
 }
 
 .sidebar.collapsed .logoWrap {
   width: 100%;
   justify-content: center;
+  flex: none;
 }
 
 .sidebar.collapsed .logoMark {
@@ -267,9 +274,7 @@
 }
 
 .sidebar.collapsed .collapseBtn {
-  position: absolute;
-  top: 12px;
-  right: 8px;
+  position: static;
   padding: 4px;
   color: rgba(232, 225, 219, 0.34);
 }

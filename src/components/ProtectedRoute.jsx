@@ -17,5 +17,9 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/" replace state={{ from: location }} />
   }
 
+  if (!user.emailVerified) {
+    return <Navigate to="/" replace />
+  }
+
   return children
 }

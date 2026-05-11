@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadAdminClients } from '../lib/adminFirestoreService.js'
+import { loadAdminClients, adjustClientBalance } from '../lib/adminFirestoreService.js'
 import { getClientTotalUSD, formatNative } from '../data/mockClients.js'
 import styles from './AdminClients.module.css'
 
@@ -66,14 +66,73 @@ function StatusBanner({ status }) {
 
 function ClientDetail({ client, onClose }) {
   const [txFilter, setTxFilter] = useState('all')
+  const [localClient, setLocalClient] = useState(client)
+  const [adjSymbol, setAdjSymbol] = useState('BRL')
+  const [adjType, setAdjType] = useState('credit')
+  const [adjAmount, setAdjAmount] = useState('')
+  const [adjNote, setAdjNote] = useState('')
+  const [adjStatus, setAdjStatus] = useState(null) // null | 'loading' | 'ok' | 'error'
+  const [adjError, setAdjError] = useState('')
 
   const filteredTx = useMemo(() => {
-    if (txFilter === 'all') return client.transactions
-    return client.transactions.filter((item) => item.type === txFilter)
-  }, [client.transactions, txFilter])
+    if (txFilter === 'all') return localClient.transactions
+    return localClient.transactions.filter((item) => item.type === txFilter)
+  }, [localClient.transactions, txFilter])
 
-  const status = accountStatus[client.status] ?? accountStatus.pending
-  const tier = tierColor[client.tier] ?? tierColor.Standard
+  async function handleAdjust(event) {
+    event.preventDefault()
+    const parsed = Number(String(adjAmount).replace(/,/g, '.'))
+    if (!parsed || parsed <= 0) {
+      setAdjError('Informe um valor maior que zero.')
+      return
+    }
+    const delta = adjType === 'credit' ? parsed : -parsed
+    setAdjStatus('loading')
+    setAdjError('')
+    try {
+      const result = await adjustClientBalance({ userUid: localClient.id, symbol: adjSymbol, delta, note: adjNote.trim() })
+      const sign = delta >= 0 ? '+' : '-'
+      const abs = Math.abs(delta)
+      const formatted = adjSymbol === 'BRL'
+        ? `${sign}R$${abs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+      // Atualiza estado local do painel sem recarregar tudo
+      setLocalClient((prev) => {
+        const updatedWallets = [...prev.wallets]
+        const existing = updatedWallets.find((w) => w.symbol === adjSymbol)
+        if (existing) {
+          existing.native = (existing.native || 0) + delta
+        } else {
+          updatedWallets.push({ symbol: adjSymbol, name: adjSymbol === 'USD' ? 'Dólar americano' : 'Real brasileiro', native: delta, color: adjSymbol === 'USD' ? '#4a7fdb' : '#3ecf8e' })
+        }
+        const newTx = {
+          id: result.txId,
+          type: delta >= 0 ? 'receive' : 'send',
+          label: delta >= 0 ? `Crédito manual em ${adjSymbol}` : `Débito manual em ${adjSymbol}`,
+          from: adjNote.trim() ? `Admin — ${adjNote.trim()}` : 'Ajuste administrativo',
+          amount: formatted,
+          currency: adjSymbol,
+          native: delta,
+          time: result.timeLabel,
+          status: 'completed',
+          createdAt: new Date(),
+        }
+        return { ...prev, wallets: updatedWallets, transactions: [newTx, ...prev.transactions] }
+      })
+
+      setAdjAmount('')
+      setAdjNote('')
+      setAdjStatus('ok')
+      setTimeout(() => setAdjStatus(null), 3000)
+    } catch (err) {
+      setAdjError(err?.message || 'Não foi possível aplicar o ajuste.')
+      setAdjStatus('error')
+    }
+  }
+
+  const status = accountStatus[localClient.status] ?? accountStatus.pending
+  const tier = tierColor[localClient.tier] ?? tierColor.Standard
   const sparkValues = [20, 34, 28, 55, 48, 66, 58, 74, 70, 88, 80, 95]
 
   return (
@@ -81,23 +140,23 @@ function ClientDetail({ client, onClose }) {
       <div className={styles.detailPanel}>
         <div className={styles.detailHeader}>
           <div className={styles.detailAvatarWrap}>
-            <div className={styles.detailAvatar} style={{ background: `${client.avatarColor}22`, color: client.avatarColor, border: `1.5px solid ${client.avatarColor}44` }}>
-              {client.avatarInitials}
+            <div className={styles.detailAvatar} style={{ background: `${localClient.avatarColor}22`, color: localClient.avatarColor, border: `1.5px solid ${localClient.avatarColor}44` }}>
+              {localClient.avatarInitials}
             </div>
             <span className={styles.statusIndicator} style={{ background: status.dot }} title={status.label} />
           </div>
 
           <div className={styles.detailMeta}>
             <div className={styles.detailNameRow}>
-              <h2 className={styles.detailName}>{client.name}</h2>
+              <h2 className={styles.detailName}>{localClient.name}</h2>
               <span className={styles.tierBadge} style={{ color: tier.text, background: tier.bg }}>
-                {client.tier}
+                {localClient.tier}
               </span>
             </div>
-            <span className={styles.detailEmail}>{client.email}</span>
+            <span className={styles.detailEmail}>{localClient.email}</span>
             <div className={styles.detailTags}>
-              <span className={styles.detailTag}>{client.phone}</span>
-              <span className={styles.detailTag}>Desde {client.joinedAt}</span>
+              <span className={styles.detailTag}>{localClient.phone}</span>
+              <span className={styles.detailTag}>Desde {localClient.joinedAt}</span>
               <span className={styles.detailTag} style={{ color: status.color }}>● {status.label}</span>
             </div>
           </div>
@@ -110,7 +169,7 @@ function ClientDetail({ client, onClose }) {
         </div>
 
         <div className={styles.balanceGrid}>
-          {client.wallets.map((wallet) => (
+          {localClient.wallets.map((wallet) => (
             <div key={wallet.symbol} className={styles.balanceCard}>
               <div className={styles.balanceTop}>
                 <span className={styles.balanceSymbol} style={{ background: `${wallet.color}20`, color: wallet.color }}>
@@ -132,7 +191,7 @@ function ClientDetail({ client, onClose }) {
               </span>
             </div>
             <div className={styles.balanceAmount}>
-              ${getClientTotalUSD(client).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ${getClientTotalUSD(localClient).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
             <div className={styles.balanceName}>Total em USD</div>
           </div>
@@ -142,7 +201,7 @@ function ClientDetail({ client, onClose }) {
               <span className={styles.balanceSymbol} style={{ background: 'rgba(62,207,142,0.1)', color: 'var(--green)' }}>↓</span>
             </div>
             <div className={styles.balanceAmount} style={{ color: 'var(--green)' }}>
-              {client.transactions.filter((item) => item.native > 0).length}
+              {localClient.transactions.filter((item) => item.native > 0).length}
             </div>
             <div className={styles.balanceName}>Entradas</div>
           </div>
@@ -152,10 +211,67 @@ function ClientDetail({ client, onClose }) {
               <span className={styles.balanceSymbol} style={{ background: 'rgba(224,92,126,0.1)', color: 'var(--red)' }}>↑</span>
             </div>
             <div className={styles.balanceAmount} style={{ color: 'var(--red)' }}>
-              {client.transactions.filter((item) => item.native < 0).length}
+              {localClient.transactions.filter((item) => item.native < 0).length}
             </div>
             <div className={styles.balanceName}>Saídas</div>
           </div>
+        </div>
+
+        {/* ── Ajuste manual de saldo ─────────────────────────────────────── */}
+        <div className={styles.adjSection}>
+          <span className={styles.adjTitle}>Ajuste manual de saldo</span>
+          <form className={styles.adjForm} onSubmit={handleAdjust}>
+            <div className={styles.adjRow}>
+              <div className={styles.adjField}>
+                <span className={styles.adjLabel}>Moeda</span>
+                <div className={styles.adjSegment}>
+                  {['BRL', 'USD'].map((s) => (
+                    <button key={s} type="button" className={`${styles.adjSegBtn} ${adjSymbol === s ? styles.adjSegActive : ''}`} onClick={() => setAdjSymbol(s)}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.adjField}>
+                <span className={styles.adjLabel}>Operação</span>
+                <div className={styles.adjSegment}>
+                  <button type="button" className={`${styles.adjSegBtn} ${adjType === 'credit' ? styles.adjSegCredit : ''}`} onClick={() => setAdjType('credit')}>＋ Crédito</button>
+                  <button type="button" className={`${styles.adjSegBtn} ${adjType === 'debit' ? styles.adjSegDebit : ''}`} onClick={() => setAdjType('debit')}>－ Débito</button>
+                </div>
+              </div>
+              <div className={styles.adjField} style={{ flex: 2 }}>
+                <span className={styles.adjLabel}>Valor</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={adjSymbol === 'BRL' ? '0,00' : '0.00'}
+                  value={adjAmount}
+                  onChange={(e) => { setAdjAmount(e.target.value.replace(/[^\d.,]/g, '')); setAdjError('') }}
+                />
+              </div>
+              <div className={styles.adjField} style={{ flex: 3 }}>
+                <span className={styles.adjLabel}>Motivo (opcional)</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  placeholder="Ex: TED recebida, correção operacional..."
+                  value={adjNote}
+                  maxLength={80}
+                  onChange={(e) => setAdjNote(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {adjError ? <p className={styles.adjError}>{adjError}</p> : null}
+            {adjStatus === 'ok' ? <p className={styles.adjSuccess}>Ajuste aplicado com sucesso.</p> : null}
+
+            <button
+              type="submit"
+              className={`${styles.adjSubmit} ${adjType === 'debit' ? styles.adjSubmitDebit : ''}`}
+              disabled={adjStatus === 'loading'}
+            >
+              {adjStatus === 'loading' ? 'Aplicando...' : adjType === 'credit' ? '＋ Aplicar crédito' : '－ Aplicar débito'}
+            </button>
+          </form>
         </div>
 
         <div className={styles.txSection}>
