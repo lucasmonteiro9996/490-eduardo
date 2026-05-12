@@ -635,6 +635,114 @@
   letter-spacing: 0.06em;
 }
 
+/* ── Cartões do cliente ── */
+.cardAdminSection {
+  margin: 0 28px 6px;
+  padding: 18px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(99, 129, 173, 0.18);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cardAdminHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cardAdminTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(232, 225, 219, 0.5);
+}
+
+.cardAdminHint {
+  font-size: 0.74rem;
+  color: rgba(232, 225, 219, 0.54);
+}
+
+.cardAdminForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardAdminGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cardAdminField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cardAdminField span {
+  font-size: 0.72rem;
+  color: rgba(232, 225, 219, 0.5);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.clientCardsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clientCardItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(1, 24, 66, 0.44);
+  border: 1px solid rgba(99, 129, 173, 0.16);
+}
+
+.clientCardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.clientCardMeta strong {
+  font-size: 0.84rem;
+  color: var(--light-main);
+}
+
+.clientCardMeta span {
+  font-size: 0.74rem;
+  color: rgba(232, 225, 219, 0.62);
+}
+
+.clientCardSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.clientCardSide span {
+  font-size: 0.74rem;
+  color: rgba(232, 225, 219, 0.66);
+}
+
+.clientCardStatus {
+  color: var(--green) !important;
+  font-weight: 700;
+}
+
 /* ── Ajuste manual de saldo ── */
 .adjSection {
   margin: 0 28px 6px;
@@ -955,3 +1063,18 @@
 
 .txAmount.up   { color: var(--green); }
 .txAmount.down { color: var(--red); }
+
+@media (max-width: 860px) {
+  .cardAdminGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .clientCardItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .clientCardSide {
+    align-items: flex-start;
+  }
+}

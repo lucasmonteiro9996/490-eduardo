@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadAdminClients, adjustClientBalance } from '../lib/adminFirestoreService.js'
+import { loadAdminClients, adjustClientBalance, saveClientCard } from '../lib/adminFirestoreService.js'
 import { getClientTotalUSD, formatNative } from '../data/mockClients.js'
+import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './AdminClients.module.css'
 
 const txMeta = {
@@ -25,6 +26,25 @@ const accountStatus = {
   active: { label: 'Ativa', color: 'var(--green)', dot: '#3ecf8e' },
   suspended: { label: 'Suspensa', color: 'var(--red)', dot: '#e05c7e' },
   pending: { label: 'Pendente', color: 'var(--yellow)', dot: '#f5c842' },
+}
+
+function detectCardBrand(digits) {
+  if (/^4/.test(digits)) return 'Visa'
+  if (/^5[1-5]/.test(digits)) return 'Mastercard Black'
+  if (/^2(2[2-9]|[3-6]|7[01])/.test(digits)) return 'Mastercard Platinum'
+  if (/^3[47]/.test(digits)) return 'American Express'
+  if (/^6(?:011|5)/.test(digits)) return 'Discover'
+  return 'Cartão corporativo'
+}
+
+function formatCardNumber(value) {
+  return value.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim()
+}
+
+function formatCardExpiry(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`
 }
 
 function Sparkline({ values = [], color = '#4a7fdb' }) {
@@ -64,7 +84,7 @@ function StatusBanner({ status }) {
   )
 }
 
-function ClientDetail({ client, onClose }) {
+function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
   const [txFilter, setTxFilter] = useState('all')
   const [localClient, setLocalClient] = useState(client)
   const [adjSymbol, setAdjSymbol] = useState('BRL')
@@ -73,11 +93,72 @@ function ClientDetail({ client, onClose }) {
   const [adjNote, setAdjNote] = useState('')
   const [adjStatus, setAdjStatus] = useState(null) // null | 'loading' | 'ok' | 'error'
   const [adjError, setAdjError] = useState('')
+  const [cardForm, setCardForm] = useState({
+    holder: client.name?.toUpperCase?.() || '',
+    number: '',
+    valid: '',
+    currency: 'BRL',
+    limit: '',
+  })
+  const [cardStatus, setCardStatus] = useState(null)
+  const [cardError, setCardError] = useState('')
 
   const filteredTx = useMemo(() => {
     if (txFilter === 'all') return localClient.transactions
     return localClient.transactions.filter((item) => item.type === txFilter)
   }, [localClient.transactions, txFilter])
+
+  function updateCardField(field, value) {
+    setCardForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleCreateCard(event) {
+    event.preventDefault()
+    const digits = cardForm.number.replace(/\D/g, '')
+    const holder = cardForm.holder.trim().toUpperCase()
+    const valid = cardForm.valid.trim()
+    const limit = cardForm.limit.trim()
+
+    if (holder.length < 3 || digits.length < 12 || valid.length !== 5) {
+      setCardError('Preencha titular, número e validade do cartão corretamente.')
+      return
+    }
+
+    setCardStatus('loading')
+    setCardError('')
+
+    const brand = detectCardBrand(digits)
+    const payload = {
+      id: `admin-card-${Date.now()}`,
+      brand,
+      holder,
+      number: `**** **** **** ${digits.slice(-4)}`,
+      valid,
+      cvv: '***',
+      currency: cardForm.currency,
+      limit: cardForm.currency === 'BRL' ? `R$ ${limit || '0,00'}` : `$ ${limit || '0.00'}`,
+      status: 'Ativo',
+      createdAtLabel: 'Criado pelo admin',
+    }
+
+    try {
+      await saveClientCard({ userUid: localClient.id, card: payload })
+      setLocalClient((prev) => ({ ...prev, cards: [payload, ...(prev.cards || [])] }))
+      onClientUpdate?.({ ...localClient, cards: [payload, ...(localClient.cards || [])] })
+      setCardForm({
+        holder,
+        number: '',
+        valid: '',
+        currency: cardForm.currency,
+        limit: '',
+      })
+      setCardStatus('ok')
+      setTimeout(() => setCardStatus(null), 2500)
+    } catch (error) {
+      setCardStatus('error')
+      setCardError(error?.message || 'Não foi possível cadastrar o cartão agora.')
+    }
+  }
 
   async function handleAdjust(event) {
     event.preventDefault()
@@ -191,7 +272,7 @@ function ClientDetail({ client, onClose }) {
               </span>
             </div>
             <div className={styles.balanceAmount}>
-              ${getClientTotalUSD(localClient).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              ${getClientTotalUSD(localClient, brlToUsd).toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
             <div className={styles.balanceName}>Total em USD</div>
           </div>
@@ -214,6 +295,106 @@ function ClientDetail({ client, onClose }) {
               {localClient.transactions.filter((item) => item.native < 0).length}
             </div>
             <div className={styles.balanceName}>Saídas</div>
+          </div>
+        </div>
+
+        <div className={styles.cardAdminSection}>
+          <div className={styles.cardAdminHeader}>
+            <span className={styles.cardAdminTitle}>Cartões do cliente</span>
+            <span className={styles.cardAdminHint}>Somente o admin pode criar cartões para esta conta.</span>
+          </div>
+
+          <form className={styles.cardAdminForm} onSubmit={handleCreateCard}>
+            <div className={styles.cardAdminGrid}>
+              <label className={styles.cardAdminField}>
+                <span>Titular</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  value={cardForm.holder}
+                  onChange={(event) => updateCardField('holder', event.target.value.toUpperCase())}
+                  placeholder="NOME SOBRENOME"
+                />
+              </label>
+
+              <label className={styles.cardAdminField}>
+                <span>Número do cartão</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  inputMode="numeric"
+                  value={cardForm.number}
+                  onChange={(event) => updateCardField('number', formatCardNumber(event.target.value))}
+                  placeholder="0000 0000 0000 0000"
+                />
+              </label>
+
+              <label className={styles.cardAdminField}>
+                <span>Validade</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  inputMode="numeric"
+                  value={cardForm.valid}
+                  onChange={(event) => updateCardField('valid', formatCardExpiry(event.target.value))}
+                  placeholder="MM/AA"
+                />
+              </label>
+
+              <label className={styles.cardAdminField}>
+                <span>Moeda</span>
+                <select
+                  className={styles.adjInput}
+                  value={cardForm.currency}
+                  onChange={(event) => updateCardField('currency', event.target.value)}
+                >
+                  <option value="BRL">BRL</option>
+                  <option value="USD">USD</option>
+                </select>
+              </label>
+
+              <label className={styles.cardAdminField}>
+                <span>Limite visual</span>
+                <input
+                  className={styles.adjInput}
+                  type="text"
+                  value={cardForm.limit}
+                  onChange={(event) => updateCardField('limit', event.target.value.replace(/[^\d.,]/g, '').slice(0, 12))}
+                  placeholder={cardForm.currency === 'BRL' ? '25.000,00' : '8,500.00'}
+                />
+              </label>
+            </div>
+
+            {cardError ? <p className={styles.adjError}>{cardError}</p> : null}
+            {cardStatus === 'ok' ? <p className={styles.adjSuccess}>Cartão cadastrado e vinculado à conta do cliente.</p> : null}
+
+            <button type="submit" className={styles.adjSubmit} disabled={cardStatus === 'loading'}>
+              {cardStatus === 'loading' ? 'Cadastrando...' : 'Cadastrar cartão do cliente'}
+            </button>
+          </form>
+
+          <div className={styles.clientCardsList}>
+            {(localClient.cards || []).length === 0 ? (
+              <div className={styles.emptyTx}>
+                <span className={styles.emptyTxIcon}>💳</span>
+                <span>Nenhum cartão cadastrado para este cliente.</span>
+              </div>
+            ) : (
+              (localClient.cards || []).map((card) => (
+                <div key={card.id} className={styles.clientCardItem}>
+                  <div className={styles.clientCardMeta}>
+                    <strong>{card.brand}</strong>
+                    <span>{card.number}</span>
+                    <span>{card.holder}</span>
+                  </div>
+                  <div className={styles.clientCardSide}>
+                    <span>{card.currency}</span>
+                    <span>{card.limit}</span>
+                    <span className={styles.clientCardStatus}>{card.status}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -338,8 +519,8 @@ function ClientDetail({ client, onClose }) {
   )
 }
 
-function ClientCard({ client, onClick }) {
-  const totalUSD = getClientTotalUSD(client)
+function ClientCard({ client, onClick, brlToUsd }) {
+  const totalUSD = getClientTotalUSD(client, brlToUsd)
   const status = accountStatus[client.status] ?? accountStatus.pending
   const tier = tierColor[client.tier] ?? tierColor.Standard
   const txCount = client.transactions.length
@@ -415,11 +596,14 @@ export default function AdminClients() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterTier, setFilterTier] = useState('all')
   const [selectedClient, setSelectedClient] = useState(null)
+  const [brlToUsd, setBrlToUsd] = useState(getCachedBrlToUsd)
   const [clientsState, setClientsState] = useState({
     loading: true,
     status: 'loading',
     clients: [],
   })
+
+  useEffect(() => { fetchBrlToUsd().then(setBrlToUsd) }, [])
 
   useEffect(() => {
     let active = true
@@ -452,7 +636,7 @@ export default function AdminClients() {
 
   const totalActiveUSD = clientsState.clients
     .filter((client) => client.status === 'active')
-    .reduce((sum, client) => sum + getClientTotalUSD(client), 0)
+    .reduce((sum, client) => sum + getClientTotalUSD(client, brlToUsd), 0)
 
   const countActive = clientsState.clients.filter((client) => client.status === 'active').length
   const countSuspended = clientsState.clients.filter((client) => client.status === 'suspended').length
@@ -579,6 +763,7 @@ export default function AdminClients() {
                 key={client.id}
                 client={client}
                 onClick={() => setSelectedClient(client)}
+                brlToUsd={brlToUsd}
               />
             ))
           )}
@@ -589,6 +774,14 @@ export default function AdminClients() {
         <ClientDetail
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
+          brlToUsd={brlToUsd}
+          onClientUpdate={(updated) => {
+            setSelectedClient(updated)
+            setClientsState((prev) => ({
+              ...prev,
+              clients: prev.clients.map((c) => (c.id === updated.id ? updated : c)),
+            }))
+          }}
         />
       )}
     </div>

@@ -1,8 +1,8 @@
 import { collection, doc, getDocs, increment, limit, query, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db, hasFirebaseConfig } from './firebase.js'
+import { fetchBrlToUsd } from './exchangeRateService.js'
 
 const CLIENT_COLORS = ['#4a7fdb', '#3ecf8e', '#a78bfa', '#f5c842', '#34d8b6', '#f97316']
-const BRL_TO_USD = 0.2
 
 function normalizeTimestamp(value) {
   if (!value) return null
@@ -50,10 +50,10 @@ function inferStatus(transactions) {
   return 'active'
 }
 
-function inferTier(wallets) {
+function inferTier(wallets, brlToUsd) {
   const totalUsd = wallets.reduce((sum, wallet) => {
     if (wallet.symbol === 'USD') return sum + (Number(wallet.native) || 0)
-    return sum + (Number(wallet.native) || 0) * BRL_TO_USD
+    return sum + (Number(wallet.native) || 0) * brlToUsd
   }, 0)
 
   if (totalUsd >= 50000) return 'Corporate'
@@ -93,16 +93,35 @@ function mapWallets(items) {
   }))
 }
 
-async function loadClientsFromUsers() {
+function mapCards(items) {
+  return items
+    .filter((item) => !item.deleted)
+    .map((item) => ({
+      id: item.id,
+      brand: item.brand || 'Cartão corporativo',
+      holder: item.holder || 'Titular não informado',
+      number: item.number || '**** **** **** 0000',
+      valid: item.valid || '--/--',
+      cvv: item.cvv || '***',
+      currency: item.currency || 'BRL',
+      limit: item.limit || 'R$ 0,00',
+      status: item.status || 'Ativo',
+      createdAt: normalizeTimestamp(item.createdAt),
+    }))
+}
+
+async function loadClientsFromUsers(brlToUsd) {
   const usersSnapshot = await getDocs(collection(db, 'users'))
 
   return Promise.all(usersSnapshot.docs.map(async (userDoc, index) => {
     const userData = userDoc.data()
     const walletsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'wallets'), limit(20)))
     const transactionsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'transactions'), limit(80)))
+    const cardsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'cards'), limit(20)))
 
     const wallets = mapWallets(walletsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
     const transactions = mapTransactions(transactionsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
+    const cards = mapCards(cardsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
     const joinedAt = normalizeTimestamp(userData.createdAt)
 
     return {
@@ -112,17 +131,18 @@ async function loadClientsFromUsers() {
       phone: userData.phone || userData.telefone || 'Não informado',
       joinedAt: formatDateLabel(joinedAt),
       status: userData.status || inferStatus(transactions),
-      tier: userData.tier || inferTier(wallets),
+      tier: userData.tier || inferTier(wallets, brlToUsd),
       avatarInitials: getInitials(userData.name || userData.displayName, userData.email),
       avatarColor: CLIENT_COLORS[index % CLIENT_COLORS.length],
       wallets,
       transactions,
+      cards,
     }
   }))
 }
 
 // Fallback: deriva clientes a partir de adminRequests (sempre acessível ao admin)
-async function loadClientsFromRequests() {
+async function loadClientsFromRequests(brlToUsd) {
   const requestsSnapshot = await getDocs(
     query(collection(db, 'adminRequests'), limit(500)),
   )
@@ -146,6 +166,7 @@ async function loadClientsFromRequests() {
         avatarColor: CLIENT_COLORS[byUid.size % CLIENT_COLORS.length],
         wallets: [],
         transactions: [],
+        cards: [],
         _index: index,
       })
     }
@@ -188,7 +209,7 @@ async function loadClientsFromRequests() {
   return [...byUid.values()].map((client) => ({
     ...client,
     status: inferStatus(client.transactions),
-    tier: inferTier(client.wallets),
+    tier: inferTier(client.wallets, brlToUsd),
     transactions: client.transactions.sort(
       (a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0),
     ),
@@ -250,14 +271,34 @@ export async function adjustClientBalance({ userUid, symbol, delta, note }) {
   return { txId, formatted, timeLabel }
 }
 
+export async function saveClientCard({ userUid, card }) {
+  if (!hasFirebaseConfig || !db) throw new Error('Firebase não configurado.')
+  if (!userUid || !card) throw new Error('Dados insuficientes para salvar o cartão.')
+
+  const cardId = card.id || `card-${Date.now()}`
+  const cardRef = doc(db, 'users', userUid, 'cards', cardId)
+
+  await setDoc(cardRef, {
+    ...card,
+    id: cardId,
+    deleted: false,
+    updatedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+  }, { merge: true })
+
+  return { id: cardId }
+}
+
 export async function loadAdminClients() {
   if (!hasFirebaseConfig || !db) {
     return { clients: [], status: 'missing-config' }
   }
 
+  const brlToUsd = await fetchBrlToUsd()
+
   // Tenta leitura completa da coleção users (requer regras permissivas)
   try {
-    const clients = await loadClientsFromUsers()
+    const clients = await loadClientsFromUsers(brlToUsd)
     return { clients, status: 'ready' }
   } catch (primaryError) {
     const code = String(primaryError?.code || '')
@@ -268,7 +309,7 @@ export async function loadAdminClients() {
 
   // Fallback: lê adminRequests (admin sempre tem acesso) e deriva os clientes
   try {
-    const clients = await loadClientsFromRequests()
+    const clients = await loadClientsFromRequests(brlToUsd)
     return { clients, status: 'ready' }
   } catch (fallbackError) {
     return { clients: [], status: 'error', error: fallbackError }

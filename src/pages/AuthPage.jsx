@@ -40,7 +40,12 @@ export default function AuthPage() {
     try {
       await resendVerification()
     } catch (error) {
-      setErrorMessage(error?.message || 'Não foi possível reenviar o e-mail.')
+      const code = String(error?.code || '')
+      if (code.includes('too-many-requests')) {
+        setErrorMessage('Muitas tentativas. Aguarde alguns minutos antes de reenviar.')
+      } else {
+        setErrorMessage(error?.message || 'Não foi possível reenviar o e-mail.')
+      }
     } finally {
       setResendPending(false)
     }

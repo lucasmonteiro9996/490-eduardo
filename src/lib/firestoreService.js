@@ -40,16 +40,16 @@ async function readCollection(uid, collectionName, size = 12) {
     const snapshot = await getDocs(query(ref, limit(size)))
 
     return {
-      data: snapshot.empty ? FALLBACK_DATA[collectionName] ?? [] : normalizeDocs(snapshot),
-      source: snapshot.empty ? 'mock' : 'firebase',
+      data: normalizeDocs(snapshot),
+      source: 'firebase',
       status: snapshot.empty ? 'empty' : 'ready',
     }
   } catch (error) {
     const permissionDenied = error?.code === 'permission-denied' || error?.code === 'firestore/permission-denied'
 
     return {
-      data: FALLBACK_DATA[collectionName] ?? [],
-      source: 'mock',
+      data: [],
+      source: 'firebase',
       status: permissionDenied ? 'permission-denied' : 'error',
       error,
     }

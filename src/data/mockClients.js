@@ -132,11 +132,10 @@ export const MOCK_CLIENTS = [
   },
 ]
 
-export function getClientTotalUSD(client) {
-  const BRL_TO_USD = 0.2
+export function getClientTotalUSD(client, brlToUsd = 1 / 5.75) {
   return client.wallets.reduce((sum, w) => {
-    if (w.symbol === 'USD') return sum + w.native
-    return sum + w.native * BRL_TO_USD
+    if (w.symbol === 'USD') return sum + (w.native || 0)
+    return sum + (w.native || 0) * brlToUsd
   }, 0)
 }
 

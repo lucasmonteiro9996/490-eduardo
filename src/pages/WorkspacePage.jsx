@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { formatCurrency, useWorkspace } from '../context/WorkspaceContext.jsx'
@@ -9,6 +9,7 @@ import { useToast } from '../components/Toast.jsx'
 import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { isRealPaymentsEnabled, tokenizeRealCard } from '../lib/paymentGateway.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
+import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './Dashboard.module.css'
 
 const txIcon = {
@@ -239,11 +240,20 @@ function UserRequestStatus({ requests }) {
 
 function DashboardSummary({ wallets, exchangeRates, transactions }) {
   const { t, preferredCurrency } = usePreferences()
-  const brlWallet = wallets.find((wallet) => wallet.symbol === 'BRL') ?? wallets[0]
-  const usdWallet = wallets.find((wallet) => wallet.symbol === 'USD') ?? wallets[1] ?? wallets[0]
+  const [brlToUsd, setBrlToUsd] = useState(getCachedBrlToUsd)
+  const brlWallet = wallets.find((wallet) => wallet.symbol === 'BRL')
+  const usdWalletDirect = wallets.find((wallet) => wallet.symbol === 'USD')
+
+  useEffect(() => { fetchBrlToUsd().then(setBrlToUsd) }, [])
   const usdBrl = exchangeRates.find((rate) => rate.pair === 'USD/BRL') ?? exchangeRates[0]
   const positiveTransactions = transactions.filter((item) => item.amount?.startsWith('+')).length
   const stableLabel = positiveTransactions > 1 ? t('flow_positive') : t('flow_stable')
+
+  // Se não houver carteira USD, converte o saldo BRL para mostrar o equivalente
+  const usdNative = usdWalletDirect != null
+    ? usdWalletDirect.native
+    : (brlWallet?.native || 0) * brlToUsd
+  const usdHint = usdWalletDirect != null ? t('account_usd') : `≈ convertido de BRL`
 
   const brlCard = (
     <div className={`${styles.dashboardStatCard} ${styles.statAccentGreen} corner-box ${preferredCurrency === 'BRL' ? styles.statPrimary : ''}`}>
@@ -256,8 +266,8 @@ function DashboardSummary({ wallets, exchangeRates, transactions }) {
   const usdCard = (
     <div className={`${styles.dashboardStatCard} ${styles.statAccentCyan} corner-box ${preferredCurrency === 'USD' ? styles.statPrimary : ''}`}>
       <span className={styles.dashboardStatLabel}>{t('balance_usd')}</span>
-      <div className={styles.dashboardStatValue}>{formatCurrency(usdWallet?.native || 0, 'USD')}</div>
-      <span className={styles.dashboardStatHint}>{t('account_usd')}</span>
+      <div className={styles.dashboardStatValue}>{formatCurrency(usdNative, 'USD')}</div>
+      <span className={styles.dashboardStatHint}>{usdHint}</span>
     </div>
   )
 
@@ -430,9 +440,8 @@ function DashboardTransactions({ transactions }) {
   )
 }
 
-function CardsGallery({ cards, onDeleteCard }) {
+function CardsGallery({ cards }) {
   const { t } = usePreferences()
-  const [pendingDelete, setPendingDelete] = useState(null)
 
   if (!cards.length) {
     return <p className={styles.heroDescription}>{t('no_cards')}</p>
@@ -443,29 +452,7 @@ function CardsGallery({ cards, onDeleteCard }) {
       {cards.map((card) => (
         <div key={card.id} className={styles.cardShowcase}>
           <div className={styles.cardActions}>
-            {pendingDelete === card.id ? (
-              <div className={styles.cardDeleteConfirm}>
-                <span className={styles.cardDeleteQuestion}>{card.brand}?</span>
-                <button
-                  type="button"
-                  className={styles.cardConfirmBtn}
-                  onClick={() => { onDeleteCard(card); setPendingDelete(null) }}
-                >
-                  {t('delete_confirm')}
-                </button>
-                <button
-                  type="button"
-                  className={styles.cardCancelBtn}
-                  onClick={() => setPendingDelete(null)}
-                >
-                  {t('cancel')}
-                </button>
-              </div>
-            ) : (
-              <button type="button" className={styles.cardDeleteButton} onClick={() => setPendingDelete(card.id)}>
-                {t('delete_card')}
-              </button>
-            )}
+            <span className={styles.cardMetaLabel}>Emitido pelo admin</span>
           </div>
           <CreditCard brand={card.brand} holder={card.holder} number={card.number} valid={card.valid} cvv={card.cvv} />
           <div className={styles.cardMeta}>
@@ -922,9 +909,10 @@ function UserNotifications({ notifications, onDismiss }) {
                 }}>
                   {n.subject}
                 </span>
-                <span style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}>
-                  {n.body}
-                </span>
+                <span
+                  style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}
+                  dangerouslySetInnerHTML={{ __html: n.body }}
+                />
                 <span style={{ fontSize: '0.68rem', color: 'rgba(232,225,219,0.38)', marginTop: '2px' }}>
                   {t('from_label')}: {n.from} · {n.sentAt}
                 </span>
@@ -1016,14 +1004,6 @@ export default function WorkspacePage({ pageKey }) {
     openStatementPdf(workspace.transactions.data, { owner: userName })
   }
 
-  async function handleAddCard(card) {
-    await workspace.addCard(card)
-  }
-
-  async function handleDeleteCard(card) {
-    await workspace.removeCard(card.id)
-  }
-
   const cardsData = workspace.cards.data.filter((card) => !card.deleted)
 
   return (
@@ -1094,16 +1074,16 @@ export default function WorkspacePage({ pageKey }) {
         {pageKey === 'cards' && (
           <>
             <CardsSummary cards={cardsData} />
-            <SectionCard title={t('section_add_card')}>
-              <AddCardPanel
-                defaultHolder={userName}
-                defaultEmail={user?.email || ''}
-                userUid={user?.uid || ''}
-                onAddCard={handleAddCard}
-              />
-            </SectionCard>
             <SectionCard title={t('section_cards')}>
-              <CardsGallery cards={cardsData} onDeleteCard={handleDeleteCard} />
+              <div className={styles.walletList}>
+                <div className={`${styles.walletItem} corner-box`}>
+                  <div className={styles.walletInfo}>
+                    <span className={styles.walletAmount}>Cartões emitidos pelo administrador</span>
+                    <span className={styles.walletName}>O cliente apenas visualiza os cartões vinculados à conta. Cadastro e alterações são feitos exclusivamente pelo admin.</span>
+                  </div>
+                </div>
+              </div>
+              <CardsGallery cards={cardsData} />
             </SectionCard>
           </>
         )}
