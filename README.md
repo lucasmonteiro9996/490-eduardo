@@ -1,6 +1,6 @@
 # Ocean Capital Payment Manager
 
-Aplicação Vite + React com área do usuário e área administrativa.
+Aplicacao Vite + React com area do usuario e area administrativa.
 
 ## Build local
 
@@ -9,21 +9,34 @@ npm install
 npm run build
 ```
 
+## Deploy na Hostinger
+
+1. Crie o arquivo `.env.production` com as variaveis `VITE_*` do projeto.
+2. Gere o pacote de publicacao:
+
+```bash
+npm run build:hostinger
+```
+
+3. Envie o conteudo da pasta `dist/` para `public_html/` no hPanel.
+4. Confirme que o `.htaccess` foi publicado junto com o build para manter as rotas SPA.
+5. No Firebase, autorize o dominio da Hostinger em `Authentication > Settings > Authorized domains`.
+
 ## Deploy na Netlify
 
-Use estas configurações:
+Use estas configuracoes:
 
 - Build command: `npm run build`
 - Publish directory: `dist`
 
-As rotas SPA já estão cobertas por:
+As rotas SPA ja estao cobertas por:
 
 - [netlify.toml](./netlify.toml)
 - [public/_redirects](./public/_redirects)
 
-## Variáveis de ambiente
+## Variaveis de ambiente
 
-Cadastre na Netlify:
+Cadastre no provedor de hospedagem ou em `.env.production` antes do build:
 
 ```env
 VITE_FIREBASE_API_KEY=
@@ -40,14 +53,13 @@ VITE_EMAILJS_PUBLIC_KEY=
 
 ## Firebase
 
-Antes de publicar em produção:
+Antes de publicar em producao:
 
 1. Ative `Authentication > Email/Password`
 2. Ative `Firestore Database`
-3. Adicione os domínios da Netlify em `Authentication > Settings > Authorized domains`
+3. Adicione os dominios de producao em `Authentication > Settings > Authorized domains`
 
 Domínios para autorizar:
 
-- `seu-site.netlify.app`
 - `seu-dominio.com`
 - `www.seu-dominio.com`

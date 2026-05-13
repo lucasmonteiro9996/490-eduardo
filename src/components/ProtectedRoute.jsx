@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import AccountStatusGate from './AccountStatusGate.jsx'
 
 export default function ProtectedRoute({ children }) {
   const { user, loading, hasFirebaseConfig, demoMode } = useAuth()
@@ -10,7 +11,7 @@ export default function ProtectedRoute({ children }) {
   }
 
   if (!hasFirebaseConfig || demoMode) {
-    return children
+    return <AccountStatusGate>{children}</AccountStatusGate>
   }
 
   if (!user) {
@@ -21,5 +22,5 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/" replace />
   }
 
-  return children
+  return <AccountStatusGate>{children}</AccountStatusGate>
 }

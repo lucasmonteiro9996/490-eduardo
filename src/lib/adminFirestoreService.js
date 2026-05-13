@@ -289,6 +289,48 @@ export async function saveClientCard({ userUid, card }) {
   return { id: cardId }
 }
 
+export async function updateClientAccountStatus({ userUid, status, reason }) {
+  if (!hasFirebaseConfig || !db) throw new Error('Firebase não configurado.')
+  if (!userUid || !['active', 'suspended'].includes(status)) {
+    throw new Error('Dados insuficientes para revisar a conta.')
+  }
+
+  const now = new Date()
+  const timeLabel = now.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const finalReason = String(reason || '').trim() || null
+  const userRef = doc(db, 'users', userUid)
+  const notificationRef = doc(collection(db, 'users', userUid, 'notifications'))
+
+  await setDoc(userRef, {
+    status,
+    rejectionReason: status === 'suspended' ? finalReason : null,
+    reviewedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+
+  await setDoc(notificationRef, {
+    type: status === 'active' ? 'approval' : 'rejection',
+    subject: status === 'active' ? 'Sua conta foi aprovada' : 'Sua conta foi recusada',
+    body: status === 'active'
+      ? 'O administrador liberou seu acesso ao Ocean Capital. Voce ja pode usar o painel normalmente.'
+      : finalReason
+        ? `O administrador recusou o cadastro da sua conta.\n\nMotivo: ${finalReason}`
+        : 'O administrador recusou o cadastro da sua conta.',
+    from: 'siteocn@gmail.com',
+    read: false,
+    createdAt: serverTimestamp(),
+    sentAt: timeLabel,
+  })
+
+  return { status, timeLabel }
+}
+
 export async function loadAdminClients() {
   if (!hasFirebaseConfig || !db) {
     return { clients: [], status: 'missing-config' }

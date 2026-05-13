@@ -25,6 +25,7 @@ import {
 } from '../lib/mockEmailService.js'
 import { ADMIN_NOTIFICATION_EMAIL, sendAdminApprovalRequestEmail } from '../lib/emailService.js'
 import { createRealDepositCharge, isRealPaymentsEnabled } from '../lib/paymentGateway.js'
+import { useAdminAuth } from './AdminAuthContext.jsx'
 import { useAuth } from './AuthContext.jsx'
 
 const WorkspaceContext = createContext(null)
@@ -161,6 +162,7 @@ function mergeTransactionsWithRequests(transactions, requests) {
 
 export function WorkspaceProvider({ children }) {
   const { user, demoMode } = useAuth()
+  const { isAdmin } = useAdminAuth()
   const [state, setState] = useState({
     loading: true,
     wallets: { data: [], status: 'loading' },
@@ -189,7 +191,10 @@ export function WorkspaceProvider({ children }) {
   }, [user?.uid])
 
   useEffect(() => {
-    if (!canUseRealtimeFlow) return undefined
+    if (!canUseRealtimeFlow || !isAdmin) {
+      setAdminRequests([])
+      return undefined
+    }
 
     const adminRequestsRef = query(collection(db, 'adminRequests'), orderBy('createdAt', 'desc'))
 
@@ -202,7 +207,7 @@ export function WorkspaceProvider({ children }) {
         setAdminRequests([])
       },
     )
-  }, [canUseRealtimeFlow])
+  }, [canUseRealtimeFlow, isAdmin])
 
   useEffect(() => {
     if (!canUseRealtimeFlow || !user?.uid) {
@@ -351,8 +356,8 @@ export function WorkspaceProvider({ children }) {
       const numeric = Number(amount) || 0
       if (numeric <= 0) return null
 
-      const requestId = `req-${Date.now()}`
-      const txId = `tx-${Date.now()}`
+      const requestId = `req-${crypto.randomUUID()}`
+      const txId = `tx-${crypto.randomUUID()}`
       const formatted = formatCurrency(numeric, symbol)
       const createdAtLabel = nowLabel()
       const userEmail = user?.email || 'cliente@oceancapital.com'
@@ -667,8 +672,8 @@ export function WorkspaceProvider({ children }) {
           type: 'rejection',
           subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi recusado`,
           body: finalReason
-            ? `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.<br/><br/>Motivo: ${finalReason}`
-            : `O administrador recusou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+            ? `O administrador recusou sua solicitação de ${req.formattedAmount}.\n\nMotivo: ${finalReason}`
+            : `O administrador recusou sua solicitação de ${req.formattedAmount}.`,
           from: ADMIN_NOTIFICATION_EMAIL,
           read: false,
           createdAt: serverTimestamp(),

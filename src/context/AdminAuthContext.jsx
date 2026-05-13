@@ -2,12 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, hasFirebaseConfig } from '../lib/firebase.js'
 
-const ADMIN_CREDENTIALS = {
-  email: 'siteocn@gmail.com',
-  password: 'admin@2024',
-}
-
-const ADMIN_ALLOWLIST = [ADMIN_CREDENTIALS.email]
+const ADMIN_ALLOWLIST = ['siteocn@gmail.com']
 const SESSION_KEY = 'oc_admin_session'
 
 function isAdminEmail(email) {
@@ -82,40 +77,30 @@ export function AdminAuthProvider({ children }) {
         return { ok: false, error: 'Este usuário não possui permissão para acessar o painel admin.' }
       }
 
-      if (hasFirebaseConfig && auth) {
-        try {
-          const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password)
-
-          if (!isAdminEmail(credential.user.email)) {
-            await signOut(auth)
-            return { ok: false, error: 'Este usuário não possui permissão para acessar o painel admin.' }
-          }
-
-          const session = buildSession(credential.user.email, credential.user.displayName)
-          saveSession(session)
-          setAdmin(session)
-          return { ok: true }
-        } catch (error) {
-          const code = String(error?.code || '')
-          if (!code.includes('auth/')) {
-            return { ok: false, error: 'Não foi possível validar o acesso admin no Firebase agora.' }
-          }
-
-          return { ok: false, error: 'Credenciais inválidas. Verifique e-mail e senha.' }
-        }
+      if (!hasFirebaseConfig || !auth) {
+        return { ok: false, error: 'Painel admin indisponível: Firebase não configurado.' }
       }
 
-      if (
-        normalizedEmail === ADMIN_CREDENTIALS.email &&
-        password === ADMIN_CREDENTIALS.password
-      ) {
-        const session = buildSession(ADMIN_CREDENTIALS.email, 'Administrador')
+      try {
+        const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password)
+
+        if (!isAdminEmail(credential.user.email)) {
+          await signOut(auth)
+          return { ok: false, error: 'Este usuário não possui permissão para acessar o painel admin.' }
+        }
+
+        const session = buildSession(credential.user.email, credential.user.displayName)
         saveSession(session)
         setAdmin(session)
         return { ok: true }
-      }
+      } catch (error) {
+        const code = String(error?.code || '')
+        if (!code.includes('auth/')) {
+          return { ok: false, error: 'Não foi possível validar o acesso admin no Firebase agora.' }
+        }
 
-      return { ok: false, error: 'Credenciais inválidas. Verifique e-mail e senha.' }
+        return { ok: false, error: 'Credenciais inválidas. Verifique e-mail e senha.' }
+      }
     },
 
     async logout() {

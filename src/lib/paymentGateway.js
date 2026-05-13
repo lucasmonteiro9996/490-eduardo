@@ -1,4 +1,17 @@
 const REAL_PAYMENTS_FLAG = String(import.meta.env.VITE_REAL_PAYMENTS_ENABLED || '').toLowerCase() === 'true'
+const FUNCTIONS_BASE_URL = String(import.meta.env.VITE_FUNCTIONS_BASE_URL || '').trim().replace(/\/$/, '')
+
+function resolveFunctionUrl(path) {
+  if (!FUNCTIONS_BASE_URL) {
+    return `/.netlify/functions/${path}`
+  }
+
+  if (/\/api$/i.test(FUNCTIONS_BASE_URL)) {
+    return `${FUNCTIONS_BASE_URL}/${path}`
+  }
+
+  return `${FUNCTIONS_BASE_URL}/${path}`
+}
 
 async function postJson(url, body) {
   const response = await fetch(url, {
@@ -23,13 +36,13 @@ export function isRealPaymentsEnabled() {
 }
 
 export async function createRealDepositCharge(payload) {
-  return postJson('/.netlify/functions/payment-deposit-create', payload)
+  return postJson(resolveFunctionUrl('payment-deposit-create'), payload)
 }
 
 export async function createRealWithdrawalTransfer(payload) {
-  return postJson('/.netlify/functions/payment-withdraw-create', payload)
+  return postJson(resolveFunctionUrl('payment-withdraw-create'), payload)
 }
 
 export async function tokenizeRealCard(payload) {
-  return postJson('/.netlify/functions/card-tokenize', payload)
+  return postJson(resolveFunctionUrl('card-tokenize'), payload)
 }

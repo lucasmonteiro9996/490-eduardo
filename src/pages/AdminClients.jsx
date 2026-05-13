@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadAdminClients, adjustClientBalance, saveClientCard } from '../lib/adminFirestoreService.js'
+import { createPortal } from 'react-dom'
+import { loadAdminClients, adjustClientBalance, saveClientCard, updateClientAccountStatus } from '../lib/adminFirestoreService.js'
 import { getClientTotalUSD, formatNative } from '../data/mockClients.js'
 import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './AdminClients.module.css'
@@ -84,9 +85,12 @@ function StatusBanner({ status }) {
   )
 }
 
-function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
+function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUsd }) {
   const [txFilter, setTxFilter] = useState('all')
   const [localClient, setLocalClient] = useState(client)
+  const [reviewReason, setReviewReason] = useState('')
+  const [reviewStatus, setReviewStatus] = useState(null)
+  const [reviewError, setReviewError] = useState('')
   const [adjSymbol, setAdjSymbol] = useState('BRL')
   const [adjType, setAdjType] = useState('credit')
   const [adjAmount, setAdjAmount] = useState('')
@@ -102,6 +106,14 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
   })
   const [cardStatus, setCardStatus] = useState(null)
   const [cardError, setCardError] = useState('')
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
 
   const filteredTx = useMemo(() => {
     if (txFilter === 'all') return localClient.transactions
@@ -157,6 +169,30 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
     } catch (error) {
       setCardStatus('error')
       setCardError(error?.message || 'Não foi possível cadastrar o cartão agora.')
+    }
+  }
+
+  async function handleReview(nextStatus) {
+    setReviewStatus('loading')
+    setReviewError('')
+    try {
+      await onReviewClient?.({
+        client: localClient,
+        status: nextStatus,
+        reason: reviewReason.trim() || null,
+      })
+      const updatedClient = {
+        ...localClient,
+        status: nextStatus,
+        rejectionReason: nextStatus === 'suspended' ? (reviewReason.trim() || null) : null,
+      }
+      setLocalClient(updatedClient)
+      onClientUpdate?.(updatedClient)
+      setReviewStatus('ok')
+      setReviewReason('')
+    } catch (error) {
+      setReviewStatus('error')
+      setReviewError(error?.message || 'Não foi possível revisar a conta agora.')
     }
   }
 
@@ -216,7 +252,7 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
   const tier = tierColor[localClient.tier] ?? tierColor.Standard
   const sparkValues = [20, 34, 28, 55, 48, 66, 58, 74, 70, 88, 80, 95]
 
-  return (
+  return createPortal(
     <div className={styles.detailOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className={styles.detailPanel}>
         <div className={styles.detailHeader}>
@@ -248,6 +284,49 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
             </svg>
           </button>
         </div>
+
+        <div className={styles.detailBody}>
+        {localClient.status === 'pending' ? (
+          <div className={styles.reviewPanel}>
+            <div>
+              <span className={styles.reviewTitle}>Conta aguardando liberacao</span>
+              <p className={styles.reviewText}>
+                Revise o cadastro do cliente e decida se a conta pode acessar o painel.
+              </p>
+            </div>
+            <label className={styles.reviewField}>
+              <span>Motivo da recusa (opcional)</span>
+              <input
+                className={styles.adjInput}
+                type="text"
+                value={reviewReason}
+                onChange={(event) => setReviewReason(event.target.value)}
+                placeholder="Ex: documentacao incompleta, dados inconsistentes..."
+                maxLength={180}
+              />
+            </label>
+            {reviewError ? <p className={styles.adjError}>{reviewError}</p> : null}
+            {reviewStatus === 'ok' ? <p className={styles.adjSuccess}>Status da conta atualizado.</p> : null}
+            <div className={styles.reviewActions}>
+              <button
+                type="button"
+                className={styles.reviewApprove}
+                disabled={reviewStatus === 'loading'}
+                onClick={() => handleReview('active')}
+              >
+                Aprovar conta
+              </button>
+              <button
+                type="button"
+                className={styles.reviewReject}
+                disabled={reviewStatus === 'loading'}
+                onClick={() => handleReview('suspended')}
+              >
+                Recusar conta
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className={styles.balanceGrid}>
           {localClient.wallets.map((wallet) => (
@@ -403,7 +482,7 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
           <span className={styles.adjTitle}>Ajuste manual de saldo</span>
           <form className={styles.adjForm} onSubmit={handleAdjust}>
             <div className={styles.adjRow}>
-              <div className={styles.adjField}>
+              <div className={`${styles.adjField} ${styles.adjFieldCurrency}`}>
                 <span className={styles.adjLabel}>Moeda</span>
                 <div className={styles.adjSegment}>
                   {['BRL', 'USD'].map((s) => (
@@ -411,14 +490,14 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
                   ))}
                 </div>
               </div>
-              <div className={styles.adjField}>
+              <div className={`${styles.adjField} ${styles.adjFieldOperation}`}>
                 <span className={styles.adjLabel}>Operação</span>
                 <div className={styles.adjSegment}>
                   <button type="button" className={`${styles.adjSegBtn} ${adjType === 'credit' ? styles.adjSegCredit : ''}`} onClick={() => setAdjType('credit')}>＋ Crédito</button>
                   <button type="button" className={`${styles.adjSegBtn} ${adjType === 'debit' ? styles.adjSegDebit : ''}`} onClick={() => setAdjType('debit')}>－ Débito</button>
                 </div>
               </div>
-              <div className={styles.adjField} style={{ flex: 2 }}>
+              <div className={`${styles.adjField} ${styles.adjFieldAmount}`}>
                 <span className={styles.adjLabel}>Valor</span>
                 <input
                   className={styles.adjInput}
@@ -429,7 +508,7 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
                   onChange={(e) => { setAdjAmount(e.target.value.replace(/[^\d.,]/g, '')); setAdjError('') }}
                 />
               </div>
-              <div className={styles.adjField} style={{ flex: 3 }}>
+              <div className={`${styles.adjField} ${styles.adjFieldReason}`}>
                 <span className={styles.adjLabel}>Motivo (opcional)</span>
                 <input
                   className={styles.adjInput}
@@ -514,12 +593,14 @@ function ClientDetail({ client, onClose, onClientUpdate, brlToUsd }) {
             </div>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
-function ClientCard({ client, onClick, brlToUsd }) {
+function ClientCard({ client, onClick, brlToUsd, onReviewClient }) {
   const totalUSD = getClientTotalUSD(client, brlToUsd)
   const status = accountStatus[client.status] ?? accountStatus.pending
   const tier = tierColor[client.tier] ?? tierColor.Standard
@@ -528,6 +609,7 @@ function ClientCard({ client, onClick, brlToUsd }) {
 
   return (
     <div className={styles.clientCard} onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => event.key === 'Enter' && onClick()}>
+      <div className={styles.clientCardMain}>
       <div className={styles.clientCardLeft}>
         <div className={styles.clientAvatarWrap}>
           <div
@@ -587,6 +669,26 @@ function ClientCard({ client, onClick, brlToUsd }) {
           </svg>
         </div>
       </div>
+      </div>
+
+      {client.status === 'pending' && onReviewClient ? (
+        <div className={styles.cardReviewActions} onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            className={styles.reviewQuickApprove}
+            onClick={() => onReviewClient({ client, status: 'active', reason: null })}
+          >
+            Aprovar
+          </button>
+          <button
+            type="button"
+            className={styles.reviewQuickReject}
+            onClick={onClick}
+          >
+            Revisar
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -641,6 +743,25 @@ export default function AdminClients() {
   const countActive = clientsState.clients.filter((client) => client.status === 'active').length
   const countSuspended = clientsState.clients.filter((client) => client.status === 'suspended').length
   const countPending = clientsState.clients.filter((client) => client.status === 'pending').length
+  const pendingClients = useMemo(
+    () => clientsState.clients.filter((client) => client.status === 'pending'),
+    [clientsState.clients],
+  )
+
+  async function handleReviewClient({ client, status, reason }) {
+    await updateClientAccountStatus({ userUid: client.id, status, reason })
+    const updatedClient = {
+      ...client,
+      status,
+      rejectionReason: status === 'suspended' ? (reason || null) : null,
+    }
+
+    setClientsState((prev) => ({
+      ...prev,
+      clients: prev.clients.map((item) => (item.id === updatedClient.id ? updatedClient : item)),
+    }))
+    setSelectedClient((current) => (current?.id === updatedClient.id ? updatedClient : current))
+  }
 
   return (
     <div className={styles.main}>
@@ -683,6 +804,53 @@ export default function AdminClients() {
             <span className={styles.statLabel}>AUM total (USD)</span>
           </div>
         </div>
+
+        {pendingClients.length > 0 ? (
+          <div className={`${styles.pendingQueue} corner-box`}>
+            <div className={styles.pendingQueueHeader}>
+              <div>
+                <span className={styles.pendingQueueTitle}>Contas pendentes de liberacao</span>
+                <p className={styles.pendingQueueText}>
+                  {pendingClients.length} cadastro{pendingClients.length === 1 ? '' : 's'} aguardando aprovacao do admin.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.pendingQueueFilter}
+                onClick={() => setFilterStatus('pending')}
+              >
+                Ver somente pendentes
+              </button>
+            </div>
+            <div className={styles.pendingQueueList}>
+              {pendingClients.map((client) => (
+                <div key={client.id} className={styles.pendingQueueItem}>
+                  <div>
+                    <strong>{client.name}</strong>
+                    <span>{client.email}</span>
+                    <span>Cadastro desde {client.joinedAt}</span>
+                  </div>
+                  <div className={styles.pendingQueueActions}>
+                    <button
+                      type="button"
+                      className={styles.reviewQuickApprove}
+                      onClick={() => handleReviewClient({ client, status: 'active', reason: null })}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.reviewQuickReject}
+                      onClick={() => setSelectedClient(client)}
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className={styles.filterBar}>
           <div className={styles.searchWrap}>
@@ -764,6 +932,7 @@ export default function AdminClients() {
                 client={client}
                 onClick={() => setSelectedClient(client)}
                 brlToUsd={brlToUsd}
+                onReviewClient={handleReviewClient}
               />
             ))
           )}
@@ -775,6 +944,7 @@ export default function AdminClients() {
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           brlToUsd={brlToUsd}
+          onReviewClient={handleReviewClient}
           onClientUpdate={(updated) => {
             setSelectedClient(updated)
             setClientsState((prev) => ({

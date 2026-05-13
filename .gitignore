@@ -3,4 +3,5 @@ dist/
 .env
 .vite/
 .tmp-logo/
+hostinger-dist.zip
 vite.config.js.timestamp-*.mjs

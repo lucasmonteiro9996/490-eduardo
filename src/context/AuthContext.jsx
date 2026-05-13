@@ -8,7 +8,7 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, hasFirebaseConfig } from '../lib/firebase.js'
 
 const AuthContext = createContext(null)
@@ -18,24 +18,12 @@ const DEMO_USER = {
   displayName: 'Ocean Capital Demo',
 }
 
-function shouldUseDemoMode(error) {
-  const code = String(error?.code || '').toLowerCase()
-  const message = String(error?.message || '').toLowerCase()
-
-  return (
-    code.includes('permission-denied') ||
-    code.includes('invalid-api-key') ||
-    code.includes('api-key-not-valid') ||
-    message.includes('has been suspended') ||
-    message.includes('api key') ||
-    message.includes('permission-denied')
-  )
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [demoMode, setDemoMode] = useState(false)
+  const [accountProfile, setAccountProfile] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
     if (!hasFirebaseConfig || !auth) {
@@ -51,39 +39,57 @@ export function AuthProvider({ children }) {
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    if (!hasFirebaseConfig || !db || !user?.uid || demoMode) {
+      setAccountProfile(null)
+      setProfileLoading(false)
+      return undefined
+    }
+
+    setProfileLoading(true)
+    const profileRef = doc(db, 'users', user.uid)
+
+    const unsubscribe = onSnapshot(
+      profileRef,
+      (snapshot) => {
+        setAccountProfile(snapshot.exists() ? snapshot.data() : { status: 'active' })
+        setProfileLoading(false)
+      },
+      () => {
+        setAccountProfile({ status: 'active' })
+        setProfileLoading(false)
+      },
+    )
+
+    return unsubscribe
+  }, [demoMode, user?.uid])
+
   const value = useMemo(() => ({
     user,
     loading,
     hasFirebaseConfig,
     demoMode,
+    accountProfile,
+    profileLoading,
+    accountStatus: accountProfile?.status || (demoMode ? 'active' : null),
     async login(email, password) {
       if (!auth) {
-        throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
-      }
-
-      try {
-        const credential = await signInWithEmailAndPassword(auth, email, password)
-        setDemoMode(false)
-        return credential.user
-      } catch (error) {
-        if (shouldUseDemoMode(error)) {
+        if (!hasFirebaseConfig) {
           setDemoMode(true)
           setUser(DEMO_USER)
           return DEMO_USER
         }
-        throw error
-      }
-    },
-    async register({ name, email, password, cpf }) {
-      if (!auth) {
+
         throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
       }
 
-      let credential
-      try {
-        credential = await createUserWithEmailAndPassword(auth, email, password)
-      } catch (error) {
-        if (shouldUseDemoMode(error)) {
+      const credential = await signInWithEmailAndPassword(auth, email, password)
+      setDemoMode(false)
+      return credential.user
+    },
+    async register({ name, email, password, cpf }) {
+      if (!auth) {
+        if (!hasFirebaseConfig) {
           const mockUser = {
             ...DEMO_USER,
             email: email || DEMO_USER.email,
@@ -93,8 +99,11 @@ export function AuthProvider({ children }) {
           setUser(mockUser)
           return mockUser
         }
-        throw error
+
+        throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
       }
+
+      const credential = await createUserWithEmailAndPassword(auth, email, password)
 
       if (name) {
         await updateProfile(credential.user, { displayName: name })
@@ -106,7 +115,10 @@ export function AuthProvider({ children }) {
             name,
             email,
             cpf,
+            status: 'pending',
+            rejectionReason: null,
             createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           }, { merge: true })
         } catch (error) {
           if (error?.code !== 'permission-denied' && error?.code !== 'firestore/permission-denied') {
@@ -145,7 +157,7 @@ export function AuthProvider({ children }) {
 
       await signOut(auth)
     },
-  }), [demoMode, loading, user])
+  }), [accountProfile, demoMode, loading, profileLoading, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

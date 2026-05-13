@@ -67,22 +67,22 @@
 /* Card */
 .card {
   width: 100%;
-  max-width: 456px;
+  max-width: 468px;
   background:
-    radial-gradient(circle at top right, rgba(143, 220, 255, 0.1) 0%, transparent 22%),
+    radial-gradient(circle at top right, rgba(159, 230, 255, 0.12) 0%, transparent 24%),
     linear-gradient(155deg, rgba(17, 32, 64, 0.94) 0%, rgba(4, 16, 42, 0.9) 44%, rgba(2, 12, 34, 0.98) 100%);
-  border: 1px solid rgba(232, 225, 219, 0.1);
-  border-radius: 28px;
-  padding: 28px 28px 22px;
+  border: 1px solid rgba(244, 239, 232, 0.12);
+  border-radius: var(--radius-xl);
+  padding: 30px 30px 24px;
   box-shadow:
-    0 40px 90px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(24px);
+    0 44px 96px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(26px);
   position: relative;
   z-index: 1;
   overflow: hidden;
   transform-origin: center;
-  animation: cardEntrance 1s cubic-bezier(0.18, 0.84, 0.24, 1) both;
+  animation: cardEntrance 1s var(--ease-spring) both;
 }
 
 .card::before {

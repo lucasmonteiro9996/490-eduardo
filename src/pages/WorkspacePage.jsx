@@ -6,8 +6,8 @@ import { usePreferences } from '../context/PreferencesContext.jsx'
 import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
 import { useToast } from '../components/Toast.jsx'
+import SafeHtml from '../components/SafeHtml.jsx'
 import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
-import { isRealPaymentsEnabled, tokenizeRealCard } from '../lib/paymentGateway.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
 import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './Dashboard.module.css'
@@ -909,9 +909,9 @@ function UserNotifications({ notifications, onDismiss }) {
                 }}>
                   {n.subject}
                 </span>
-                <span
-                  style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5 }}
-                  dangerouslySetInnerHTML={{ __html: n.body }}
+                <SafeHtml
+                  html={n.body}
+                  style={{ fontSize: '0.78rem', color: 'rgba(232,225,219,0.62)', lineHeight: 1.5, whiteSpace: 'pre-line' }}
                 />
                 <span style={{ fontSize: '0.68rem', color: 'rgba(232,225,219,0.38)', marginTop: '2px' }}>
                   {t('from_label')}: {n.from} · {n.sentAt}

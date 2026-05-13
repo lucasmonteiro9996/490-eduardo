@@ -169,14 +169,13 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        {/* Hint de dev */}
         <div className={styles.devHint}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          Demo: <code>siteocn@gmail.com</code> / <code>admin@2024</code>
+          Use as credenciais de administrador configuradas no Firebase Authentication.
         </div>
 
         <div className={styles.footer}>

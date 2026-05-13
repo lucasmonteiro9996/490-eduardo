@@ -1,105 +1,11 @@
-/* Adaptado de Uiverse.io (Praashoo7) */
 .flipCard {
   background-color: transparent;
-  width: 240px;
-  height: 154px;
-  perspective: 1000px;
+  width: 260px;
+  height: 164px;
+  perspective: 1400px;
   color: white;
-  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.34));
-}
-
-.heading {
-  position: absolute;
-  letter-spacing: 0.2em;
-  font-size: 0.5em;
-  top: 2em;
-  left: 18.6em;
-}
-
-.logo {
-  position: absolute;
-  top: 6.8em;
-  left: 11.7em;
-}
-
-.chip {
-  position: absolute;
-  top: 2.3em;
-  left: 1.5em;
-}
-
-.contactless {
-  position: absolute;
-  top: 3.5em;
-  left: 12.4em;
-}
-
-.number {
-  position: absolute;
-  font-weight: bold;
-  font-size: 0.6em;
-  top: 8.3em;
-  left: 1.6em;
-}
-
-.validThru {
-  position: absolute;
-  font-weight: bold;
-  top: 635.8em;
-  font-size: 0.01em;
-  left: 140.3em;
-}
-
-.date {
-  position: absolute;
-  font-weight: bold;
-  font-size: 0.5em;
-  top: 13.6em;
-  left: 3.2em;
-}
-
-.name {
-  position: absolute;
-  font-weight: bold;
-  font-size: 0.5em;
-  top: 16.1em;
-  left: 2em;
-}
-
-.strip {
-  position: absolute;
-  background-color: black;
-  width: 15em;
-  height: 1.5em;
-  top: 2.4em;
-  background: repeating-linear-gradient(45deg, #303030, #303030 10px, #202020 10px, #202020 20px);
-}
-
-.mstrip {
-  position: absolute;
-  background-color: rgb(255, 255, 255);
-  width: 8em;
-  height: 0.8em;
-  top: 5em;
-  left: 0.8em;
-  border-radius: 2.5px;
-}
-
-.sstrip {
-  position: absolute;
-  background-color: rgb(255, 255, 255);
-  width: 4.1em;
-  height: 0.8em;
-  top: 5em;
-  left: 10em;
-  border-radius: 2.5px;
-}
-
-.code {
-  font-weight: bold;
-  text-align: center;
-  margin: 0.2em;
-  color: black;
+  filter: drop-shadow(0 26px 40px rgba(0, 0, 0, 0.36));
+  transform: translateZ(0);
 }
 
 .flipCardInner {
@@ -107,41 +13,218 @@
   width: 100%;
   height: 100%;
   text-align: center;
-  transition: transform 0.8s;
+  transition: transform 0.9s cubic-bezier(0.2, 0.82, 0.22, 1), filter 0.35s ease;
   transform-style: preserve-3d;
 }
 
 .flipCard:hover .flipCardInner {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateY(-4px);
+  filter: saturate(1.08);
 }
 
 .flipCardFront,
 .flipCardBack {
-  box-shadow: 0 8px 14px 0 rgba(0, 0, 0, 0.2);
   position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   width: 100%;
   height: 100%;
+  border-radius: 22px;
+  overflow: hidden;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.flipCardFront::before,
+.flipCardBack::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.14) 0%, transparent 24%, transparent 62%, rgba(255, 255, 255, 0.08) 100%),
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.14) 0%, transparent 22%);
+  pointer-events: none;
+}
+
+.flipCardFront::after,
+.flipCardBack::after {
+  content: "";
+  position: absolute;
+  inset: -35% -60%;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
+  transform: translateX(-52%) rotate(8deg);
+  animation: cardSweep 7.5s ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
 }
 
 .flipCardFront {
-  box-shadow: rgba(0, 0, 0, 0.4) 0 2px 2px, rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
-    rgba(255, 255, 255, 0.06) 0 1px 0 inset;
   background:
-    radial-gradient(circle at 14% 16%, rgba(87, 183, 241, 0.26) 0%, transparent 22%),
-    radial-gradient(circle at 82% 78%, rgba(74, 127, 219, 0.22) 0%, transparent 24%),
-    linear-gradient(145deg, #071525 0%, #10253d 52%, #08101c 100%);
+    radial-gradient(circle at 16% 18%, rgba(106, 226, 255, 0.26) 0%, transparent 24%),
+    radial-gradient(circle at 86% 84%, rgba(74, 127, 219, 0.3) 0%, transparent 28%),
+    radial-gradient(circle at 72% 22%, rgba(255, 255, 255, 0.12) 0%, transparent 22%),
+    linear-gradient(150deg, #071a34 0%, #0f2d51 42%, #0a1730 72%, #050d1a 100%);
 }
 
 .flipCardBack {
-  box-shadow: rgba(0, 0, 0, 0.4) 0 2px 2px, rgba(0, 0, 0, 0.3) 0 7px 13px -3px,
-    rgba(255, 255, 255, 0.06) 0 1px 0 inset;
-  background:
-    linear-gradient(160deg, #08111d 0%, #12243a 50%, #070c14 100%);
   transform: rotateY(180deg);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(143, 220, 255, 0.16) 0%, transparent 20%),
+    linear-gradient(160deg, #08111d 0%, #132842 50%, #070c14 100%);
+}
+
+.heading {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  margin: 0;
+  letter-spacing: 0.28em;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: rgba(232, 241, 255, 0.74);
+  text-transform: uppercase;
+}
+
+.logo {
+  position: absolute;
+  top: 54px;
+  right: 18px;
+  opacity: 0.95;
+}
+
+.chip {
+  position: absolute;
+  top: 26px;
+  left: 20px;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.18));
+}
+
+.contactless {
+  position: absolute;
+  top: 36px;
+  left: 126px;
+  opacity: 0.82;
+}
+
+.number {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 48px;
+  margin: 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.98rem;
+  letter-spacing: 0.22em;
+  color: #f6fbff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+}
+
+.validThru {
+  position: absolute;
+  left: 20px;
+  bottom: 30px;
+  margin: 0;
+  font-size: 0.42rem;
+  letter-spacing: 0.22em;
+  color: rgba(224, 236, 255, 0.52);
+  text-transform: uppercase;
+}
+
+.date {
+  position: absolute;
+  left: 86px;
+  bottom: 25px;
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: #dff0ff;
+}
+
+.name {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 12px;
+  margin: 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  color: rgba(234, 242, 255, 0.88);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strip {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  width: 100%;
+  height: 36px;
+  background: linear-gradient(90deg, #0e1116 0%, #282d35 50%, #0a0d12 100%);
+}
+
+.mstrip {
+  position: absolute;
+  top: 78px;
+  left: 18px;
+  width: 126px;
+  height: 32px;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(225, 233, 246, 0.96)),
+    repeating-linear-gradient(90deg, rgba(140, 154, 176, 0.18) 0 10px, rgba(255, 255, 255, 0.88) 10px 20px);
+}
+
+.sstrip {
+  position: absolute;
+  top: 78px;
+  right: 18px;
+  width: 78px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(232, 237, 247, 0.98));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.code {
+  margin: 0;
+  color: #0a1220;
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+}
+
+@keyframes cardSweep {
+  0%,
+  100% {
+    transform: translateX(-52%) rotate(8deg);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 0.18;
+  }
+
+  50% {
+    transform: translateX(52%) rotate(8deg);
+    opacity: 0.32;
+  }
+
+  72% {
+    opacity: 0;
+  }
 }

@@ -8,6 +8,7 @@ import { PreferencesProvider } from './context/PreferencesContext.jsx'
 import AppShell from './components/AppShell.jsx'
 import AdminShell from './components/AdminShell.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 const AuthPage = lazy(() => import('./pages/AuthPage.jsx'))
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage.jsx'))
@@ -28,9 +29,10 @@ export default function App() {
     <AuthProvider>
       <AdminAuthProvider>
         <WorkspaceProvider>
-          <ToastProvider>
-            <Suspense fallback={<RouteFallback />}>
-              <Routes>
+          <ErrorBoundary>
+            <ToastProvider>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
                 <Route path="/" element={<AuthPage />} />
                 <Route
                   path="/dashboard"
@@ -57,6 +59,7 @@ export default function App() {
               </Routes>
             </Suspense>
           </ToastProvider>
+          </ErrorBoundary>
         </WorkspaceProvider>
       </AdminAuthProvider>
     </AuthProvider>

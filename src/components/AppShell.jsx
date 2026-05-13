@@ -4,7 +4,7 @@ import styles from '../pages/Dashboard.module.css'
 
 export default function AppShell() {
   return (
-    <div className={styles.layout}>
+    <div className={`${styles.layout} page-enter`}>
       <Sidebar />
       <Outlet />
     </div>

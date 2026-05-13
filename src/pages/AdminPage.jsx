@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useWorkspace } from '../context/WorkspaceContext.jsx'
 import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { useToast } from '../components/Toast.jsx'
+import SafeHtml from '../components/SafeHtml.jsx'
 import { loadAdminClients } from '../lib/adminFirestoreService.js'
 import styles from './AdminPage.module.css'
 
@@ -501,9 +502,10 @@ function EmailCard({ email, onApprove, onReject }) {
         <span className={styles.emailTime}>{email.sentAt}</span>
       </div>
 
-      <div
+      <SafeHtml
+        html={email.body}
+        as="div"
         className={styles.emailBody}
-        dangerouslySetInnerHTML={{ __html: email.body }}
       />
 
       <div className={styles.emailAmount}>
