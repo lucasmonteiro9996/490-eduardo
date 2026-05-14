@@ -1,3 +1,5 @@
+import { auth } from './firebase.js'
+
 const REAL_PAYMENTS_FLAG = String(import.meta.env.VITE_REAL_PAYMENTS_ENABLED || '').toLowerCase() === 'true'
 const FUNCTIONS_BASE_URL = String(import.meta.env.VITE_FUNCTIONS_BASE_URL || '').trim().replace(/\/$/, '')
 
@@ -13,11 +15,21 @@ function resolveFunctionUrl(path) {
   return `${FUNCTIONS_BASE_URL}/${path}`
 }
 
+async function getIdToken() {
+  if (!auth?.currentUser) {
+    throw new Error('Sessao expirada. Entre novamente para continuar.')
+  }
+
+  return auth.currentUser.getIdToken()
+}
+
 async function postJson(url, body) {
+  const idToken = await getIdToken()
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
     },
     body: JSON.stringify(body),
   })

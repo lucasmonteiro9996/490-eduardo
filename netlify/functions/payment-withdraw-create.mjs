@@ -1,4 +1,5 @@
 import { asaasRequest, ensurePost, jsonError, jsonOk, readJsonBody } from './_asaas.mjs'
+import { requireFirebaseAuth } from './_auth.mjs'
 
 function sanitizeDigits(value, maxLength = 32) {
   return String(value || '').replace(/\D/g, '').slice(0, maxLength)
@@ -15,6 +16,9 @@ export async function handler(event) {
   if (methodError) return methodError
 
   try {
+    const authResult = await requireFirebaseAuth(event, { requireAdmin: true })
+    if (authResult.error) return authResult.error
+
     const body = readJsonBody(event)
     const amount = Number(body.amount) || 0
     const bankAccount = body?.payoutDetails?.bankAccount

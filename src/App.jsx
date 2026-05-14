@@ -14,6 +14,7 @@ const AuthPage = lazy(() => import('./pages/AuthPage.jsx'))
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage.jsx'))
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'))
 const AdminClients = lazy(() => import('./pages/AdminClients.jsx'))
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage.jsx'))
 
 function RouteFallback() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
                   <Route path="configuracoes" element={<WorkspacePage pageKey="settings" />} />
                 </Route>
 
+                <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/admin" element={<Navigate to="/admin/inbox" replace />} />
                 <Route path="/admin/*" element={<AdminShell />}>
                   <Route path="inbox" element={<AdminPage />} />

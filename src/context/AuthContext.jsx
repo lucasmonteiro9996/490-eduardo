@@ -17,6 +17,7 @@ const DEMO_USER = {
   email: 'demo@oceancapital.local',
   displayName: 'Ocean Capital Demo',
 }
+const ALLOW_DEMO_MODE = !import.meta.env.PROD
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -74,7 +75,7 @@ export function AuthProvider({ children }) {
     accountStatus: accountProfile?.status || (demoMode ? 'active' : null),
     async login(email, password) {
       if (!auth) {
-        if (!hasFirebaseConfig) {
+        if (!hasFirebaseConfig && ALLOW_DEMO_MODE) {
           setDemoMode(true)
           setUser(DEMO_USER)
           return DEMO_USER
@@ -89,7 +90,7 @@ export function AuthProvider({ children }) {
     },
     async register({ name, email, password, cpf }) {
       if (!auth) {
-        if (!hasFirebaseConfig) {
+        if (!hasFirebaseConfig && ALLOW_DEMO_MODE) {
           const mockUser = {
             ...DEMO_USER,
             email: email || DEMO_USER.email,

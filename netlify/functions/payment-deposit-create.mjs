@@ -1,4 +1,5 @@
 import { asaasRequest, ensureCustomer, ensurePost, jsonError, jsonOk, readJsonBody } from './_asaas.mjs'
+import { requireFirebaseAuth } from './_auth.mjs'
 
 function normalizeMethod(value) {
   return String(value || '').toLowerCase()
@@ -16,6 +17,9 @@ export async function handler(event) {
   if (methodError) return methodError
 
   try {
+    const authResult = await requireFirebaseAuth(event, { requireAdmin: true })
+    if (authResult.error) return authResult.error
+
     const body = readJsonBody(event)
     const amount = Number(body.amount) || 0
     const source = body.source || ''

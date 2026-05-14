@@ -1,4 +1,5 @@
 import { asaasRequest, ensureCustomer, ensurePost, getRemoteIp, jsonError, jsonOk, readJsonBody } from './_asaas.mjs'
+import { requireFirebaseAuth } from './_auth.mjs'
 
 function sanitizeDigits(value, maxLength = 32) {
   return String(value || '').replace(/\D/g, '').slice(0, maxLength)
@@ -10,6 +11,13 @@ export async function handler(event) {
 
   try {
     const body = readJsonBody(event)
+    const userUid = String(body.userUid || '').trim()
+    if (!userUid) {
+      return jsonError(400, 'Identificador do usuario obrigatorio para tokenizar o cartao.')
+    }
+
+    const authResult = await requireFirebaseAuth(event, { requireUid: userUid })
+    if (authResult.error) return authResult.error
     const holder = body?.holderInfo || {}
     const card = body?.creditCard || {}
 

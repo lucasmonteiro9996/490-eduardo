@@ -3,10 +3,23 @@ export const ADMIN_NOTIFICATION_EMAIL = 'siteocn@gmail.com'
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
 const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+const APP_URL = String(import.meta.env.VITE_APP_URL || '').trim().replace(/\/$/, '')
 
 export const hasEmailDeliveryConfig = Boolean(
   EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY,
 )
+
+function getAdminPanelUrl() {
+  if (APP_URL) {
+    return `${APP_URL}/admin/inbox`
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin.replace(/\/$/, '')}/admin/inbox`
+  }
+
+  return 'https://ocn.capital/admin/inbox'
+}
 
 export async function sendAdminApprovalRequestEmail({
   requestId,
@@ -30,6 +43,7 @@ export async function sendAdminApprovalRequestEmail({
 
   const operationLabel = type === 'deposit' ? 'Depósito' : 'Saque'
   const routeLabel = type === 'deposit' ? (source || 'Não informado') : (destination || 'Não informado')
+  const adminPanelUrl = getAdminPanelUrl()
 
   try {
     const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -52,6 +66,8 @@ export async function sendAdminApprovalRequestEmail({
           currency: symbol,
           route_label: routeLabel,
           created_at: createdAtLabel,
+          admin_panel_url: adminPanelUrl,
+          admin_inbox_url: adminPanelUrl,
           message: `${userName || userEmail} solicitou ${operationLabel.toLowerCase()} de ${formattedAmount}.`,
         },
       }),

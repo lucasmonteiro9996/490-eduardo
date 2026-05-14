@@ -23,7 +23,7 @@ export default function AdminShell() {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/admin/login" replace />
   }
 
   return <AdminShellInner />
