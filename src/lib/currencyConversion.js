@@ -54,6 +54,18 @@ export function splitTotalUsdToWallets(totalUsd, brlToUsd) {
 
 /** Sincroniza carteiras para exibir o mesmo patrimônio nas duas moedas. */
 export function reconcileWalletBalances(wallets, brlToUsd) {
+  const brlWallet = wallets.find((w) => w.symbol === 'BRL')
+  const usdWallet = wallets.find((w) => w.symbol === 'USD')
+
+  // Mantém valores gravados no Firestore (evita reconverter e perder centavos na tela).
+  if (brlWallet?.totalUsdPatrimony != null && brlWallet?.native != null && usdWallet?.native != null) {
+    const totalUsd = roundMoney(Number(brlWallet.totalUsdPatrimony))
+    return [
+      { ...brlWallet, native: roundMoney(brlWallet.native), ...walletPatrimonyFields(totalUsd) },
+      { ...usdWallet, native: roundMoney(usdWallet.native), ...walletPatrimonyFields(totalUsd) },
+    ]
+  }
+
   const totalUsd = getTotalUsdFromWallets(wallets, brlToUsd)
   return walletsFromTotalUsd(totalUsd, brlToUsd, wallets)
 }
@@ -81,19 +93,37 @@ export function applyMovementToTotalUsd(totalUsd, { symbol, amount, type, brlToU
 /** Calcula novos saldos absolutos sincronizados após um movimento. */
 export function computeSyncedWalletsAfterMovement({ wallets, symbol, amount, type, brlToUsd }) {
   const rate = resolveRate(brlToUsd)
-  const currentTotalUsd = getTotalUsdFromWallets(wallets, rate)
-  const newTotalUsd = applyMovementToTotalUsd(currentTotalUsd, { symbol, amount, type, brlToUsd: rate })
-  const syncedWallets = walletsFromTotalUsd(newTotalUsd, rate, wallets)
-  const split = splitTotalUsdToWallets(newTotalUsd, rate)
+  const usdToBrl = getUsdToBrl(rate)
+  const sign = type === 'deposit' ? 1 : -1
+  const movement = roundMoney(Math.abs(Number(amount) || 0) * sign)
+
+  const brlWallet = wallets.find((w) => w.symbol === 'BRL') || { symbol: 'BRL', id: 'brl' }
+  const usdWallet = wallets.find((w) => w.symbol === 'USD') || { symbol: 'USD', id: 'usd' }
+
+  let brlNative = roundMoney(Number(brlWallet.native) || 0)
+  let usdNative = roundMoney(Number(usdWallet.native) || 0)
+
+  // Aplica o valor exato na moeda do movimento; evita perda de centavos na ida/volta BRL→USD→BRL.
+  if (symbol === 'BRL') {
+    brlNative = roundMoney(brlNative + movement)
+    const totalUsd = roundMoney(brlNative * rate)
+    usdNative = totalUsd
+  } else {
+    usdNative = roundMoney(usdNative + movement)
+    const totalUsd = roundMoney(usdNative)
+    brlNative = roundMoney(totalUsd * usdToBrl)
+  }
+
+  const totalUsd = symbol === 'BRL' ? roundMoney(brlNative * rate) : roundMoney(usdNative)
 
   return {
-    totalUsd: newTotalUsd,
-    wallets: syncedWallets.map((wallet) => ({
-      ...wallet,
-      ...walletPatrimonyFields(newTotalUsd),
-    })),
-    BRL: split.BRL,
-    USD: split.USD,
+    totalUsd,
+    wallets: [
+      { ...brlWallet, symbol: 'BRL', native: brlNative, ...walletPatrimonyFields(totalUsd) },
+      { ...usdWallet, symbol: 'USD', native: usdNative, ...walletPatrimonyFields(totalUsd) },
+    ],
+    BRL: brlNative,
+    USD: usdNative,
     brlToUsd: rate,
   }
 }
