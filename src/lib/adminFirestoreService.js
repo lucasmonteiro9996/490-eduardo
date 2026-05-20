@@ -1,5 +1,12 @@
-import { collection, doc, getDocs, increment, limit, query, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, doc, getDocs, limit, query, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
 import { db, hasFirebaseConfig } from './firebase.js'
+import {
+  computeSyncedWalletsAfterMovement,
+  computeSyncedWalletsFromDelta,
+  getTotalUsdFromWallets,
+  reconcileWalletBalances,
+  walletPatrimonyFields,
+} from './currencyConversion.js'
 import { fetchBrlToUsd } from './exchangeRateService.js'
 
 const CLIENT_COLORS = ['#4a7fdb', '#3ecf8e', '#a78bfa', '#f5c842', '#34d8b6', '#f97316']
@@ -51,10 +58,7 @@ function inferStatus(transactions) {
 }
 
 function inferTier(wallets, brlToUsd) {
-  const totalUsd = wallets.reduce((sum, wallet) => {
-    if (wallet.symbol === 'USD') return sum + (Number(wallet.native) || 0)
-    return sum + (Number(wallet.native) || 0) * brlToUsd
-  }, 0)
+  const totalUsd = getTotalUsdFromWallets(wallets, brlToUsd)
 
   if (totalUsd >= 50000) return 'Corporate'
   if (totalUsd >= 8000) return 'Premium'
@@ -119,7 +123,10 @@ async function loadClientsFromUsers(brlToUsd) {
     const transactionsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'transactions'), limit(80)))
     const cardsSnapshot = await getDocs(query(collection(db, 'users', userDoc.id, 'cards'), limit(20)))
 
-    const wallets = mapWallets(walletsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
+    const wallets = reconcileWalletBalances(
+      mapWallets(walletsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+      brlToUsd,
+    )
     const transactions = mapTransactions(transactionsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
     const cards = mapCards(cardsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
     const joinedAt = normalizeTimestamp(userData.createdAt)
@@ -190,19 +197,17 @@ async function loadClientsFromRequests(brlToUsd) {
       createdAt: normalizeTimestamp(req.createdAt),
     })
 
-    // Acumula saldo aprovado por moeda
+    // Acumula saldo aprovado com conversão sincronizada
     if (approved) {
-      const existing = client.wallets.find((w) => w.symbol === req.symbol)
-      if (existing) {
-        existing.native += native
-      } else {
-        client.wallets.push({
-          symbol: req.symbol || 'BRL',
-          name: req.symbol === 'USD' ? 'Dólar americano' : 'Real brasileiro',
-          native,
-          color: req.symbol === 'USD' ? '#4a7fdb' : '#3ecf8e',
-        })
-      }
+      const movementType = req.type === 'deposit' ? 'deposit' : 'withdraw'
+      const synced = computeSyncedWalletsAfterMovement({
+        wallets: client.wallets,
+        symbol: req.symbol || 'BRL',
+        amount: Math.abs(req.amount || 0),
+        type: movementType,
+        brlToUsd,
+      })
+      client.wallets = synced.wallets
     }
   })
 
@@ -218,47 +223,79 @@ async function loadClientsFromRequests(brlToUsd) {
 
 export async function adjustClientBalance({ userUid, symbol, delta, note }) {
   if (!hasFirebaseConfig || !db) throw new Error('Firebase não configurado.')
-  if (!userUid || !symbol || !delta) throw new Error('Dados insuficientes para o ajuste.')
+  if (!userUid || !symbol) throw new Error('Dados insuficientes para o ajuste.')
 
-  const walletId = symbol.toLowerCase()
+  const numericDelta = Number(delta)
+  if (!numericDelta || Number.isNaN(numericDelta)) {
+    throw new Error('Informe um valor válido para o ajuste.')
+  }
+
+  const brlToUsd = await fetchBrlToUsd()
+  const walletsSnapshot = await getDocs(collection(db, 'users', userUid, 'wallets'))
+  const currentWallets = walletsSnapshot.docs.map((item) => ({
+    id: item.id,
+    symbol: item.data().symbol || (item.id === 'usd' ? 'USD' : 'BRL'),
+    ...item.data(),
+  }))
+  const synced = computeSyncedWalletsFromDelta({
+    wallets: currentWallets,
+    symbol,
+    delta: numericDelta,
+    brlToUsd,
+  })
+
   const txId = `admin-adj-${Date.now()}`
   const now = new Date()
   const timeLabel = now.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  const walletRef = doc(db, 'users', userUid, 'wallets', walletId)
+  const brlWalletRef = doc(db, 'users', userUid, 'wallets', 'brl')
+  const usdWalletRef = doc(db, 'users', userUid, 'wallets', 'usd')
   const txRef = doc(db, 'users', userUid, 'transactions', txId)
   const notifRef = doc(db, 'users', userUid, 'notifications', `notif-${txId}`)
 
-  await setDoc(walletRef, {
-    id: walletId,
-    symbol,
-    name: symbol === 'USD' ? 'Dólar americano' : 'Real brasileiro',
-    native: increment(delta),
-    color: symbol === 'USD' ? '#4a7fdb' : '#3ecf8e',
-    updatedAt: serverTimestamp(),
-  }, { merge: true })
-
-  const sign = delta >= 0 ? '+' : '-'
-  const abs = Math.abs(delta)
+  const sign = numericDelta >= 0 ? '+' : '-'
+  const abs = Math.abs(numericDelta)
   const formatted = symbol === 'BRL'
     ? `${sign}R$${abs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
     : `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
-  await setDoc(txRef, {
+  const batch = writeBatch(db)
+
+  batch.set(brlWalletRef, {
+    id: 'brl',
+    symbol: 'BRL',
+    name: 'Real brasileiro',
+    native: synced.BRL,
+    color: '#3ecf8e',
+    ...walletPatrimonyFields(synced.totalUsd),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+
+  batch.set(usdWalletRef, {
+    id: 'usd',
+    symbol: 'USD',
+    name: 'Dólar americano',
+    native: synced.USD,
+    color: '#4a7fdb',
+    ...walletPatrimonyFields(synced.totalUsd),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+
+  batch.set(txRef, {
     id: txId,
-    type: delta >= 0 ? 'receive' : 'send',
-    label: delta >= 0 ? `Crédito manual em ${symbol}` : `Débito manual em ${symbol}`,
+    type: numericDelta >= 0 ? 'receive' : 'send',
+    label: numericDelta >= 0 ? `Crédito manual em ${symbol}` : `Débito manual em ${symbol}`,
     from: note ? `Admin — ${note}` : 'Ajuste administrativo',
     amount: formatted,
     currency: symbol,
-    native: delta,
+    native: numericDelta,
     time: timeLabel,
     status: 'completed',
     createdAt: serverTimestamp(),
   })
 
-  await setDoc(notifRef, {
-    type: delta >= 0 ? 'approval' : 'rejection',
-    subject: delta >= 0 ? `Crédito de ${formatted} aplicado` : `Débito de ${formatted} aplicado`,
+  batch.set(notifRef, {
+    type: numericDelta >= 0 ? 'approval' : 'rejection',
+    subject: numericDelta >= 0 ? `Crédito de ${formatted} aplicado` : `Débito de ${formatted} aplicado`,
     body: note
       ? `O administrador realizou um ajuste manual de <strong>${formatted}</strong> em sua conta. Motivo: ${note}.`
       : `O administrador realizou um ajuste manual de <strong>${formatted}</strong> em sua conta.`,
@@ -268,7 +305,17 @@ export async function adjustClientBalance({ userUid, symbol, delta, note }) {
     sentAt: timeLabel,
   })
 
-  return { txId, formatted, timeLabel }
+  try {
+    await batch.commit()
+  } catch (error) {
+    const code = String(error?.code || '')
+    if (code.includes('permission-denied')) {
+      throw new Error('Sem permissão no Firestore. Confirme login admin e publique as regras atualizadas.')
+    }
+    throw new Error(error?.message || 'Não foi possível aplicar o ajuste agora.')
+  }
+
+  return { txId, formatted, timeLabel, syncedWallets: synced.wallets }
 }
 
 export async function saveClientCard({ userUid, card }) {

@@ -3,13 +3,13 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   sendEmailVerification,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
 } from 'firebase/auth'
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, hasFirebaseConfig } from '../lib/firebase.js'
+import { requestPasswordReset } from '../lib/passwordReset.js'
 
 const AuthContext = createContext(null)
 const DEMO_USER = {
@@ -141,8 +141,7 @@ export function AuthProvider({ children }) {
       await sendEmailVerification(auth.currentUser)
     },
     async resetPassword(email) {
-      if (!auth) throw new Error('Firebase não configurado. Preencha as variáveis VITE_FIREBASE_*.')
-      await sendPasswordResetEmail(auth, email)
+      await requestPasswordReset(email)
     },
     async logout() {
       if (demoMode) {

@@ -9,7 +9,8 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 20px max(16px, env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
   animation: fadeIn 0.18s ease-out;
 }
 
@@ -20,6 +21,9 @@
 
 .modal {
   width: min(460px, 100%);
+  max-height: min(92vh, 900px);
+  margin: auto;
+  flex-shrink: 0;
   background:
     radial-gradient(circle at top right, rgba(74, 127, 219, 0.22) 0%, transparent 28%),
     radial-gradient(circle at 12% 10%, rgba(143, 220, 255, 0.08) 0%, transparent 22%),
@@ -38,6 +42,14 @@
   position: relative;
   overflow: hidden;
   animation: slideUp 0.22s ease-out;
+}
+
+.modalInvest {
+  border-color: rgba(183, 148, 246, 0.28);
+  background:
+    radial-gradient(circle at top right, rgba(159, 122, 234, 0.22) 0%, transparent 28%),
+    radial-gradient(circle at 12% 10%, rgba(183, 148, 246, 0.08) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(24, 18, 42, 0.98) 0%, rgba(10, 8, 24, 0.99) 100%);
 }
 
 .modal::before {
@@ -73,6 +85,7 @@
   gap: 12px;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
 }
 
 .kicker {
@@ -115,6 +128,11 @@
   gap: 12px;
   position: relative;
   z-index: 1;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
 }
 
 .currencyToggle {
@@ -149,6 +167,14 @@
   color: #fff;
   box-shadow:
     0 10px 22px rgba(76, 134, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.currencyBtnActiveInvest {
+  background: linear-gradient(135deg, #b794f6, #9f7aea);
+  color: #fff;
+  box-shadow:
+    0 10px 22px rgba(159, 122, 234, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -214,6 +240,16 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 18px 30px rgba(24, 69, 134, 0.22);
+}
+
+.methodCardActiveInvest {
+  background:
+    radial-gradient(circle at top right, rgba(183, 148, 246, 0.14) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(42, 28, 72, 0.96), rgba(18, 12, 38, 0.98));
+  border-color: rgba(183, 148, 246, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 30px rgba(111, 66, 193, 0.24);
 }
 
 .methodTitle {
@@ -410,6 +446,11 @@
 .btnWithdraw {
   background: linear-gradient(135deg, #ffb04d 0%, #ff7840 100%);
   box-shadow: 0 14px 28px rgba(255, 120, 64, 0.24);
+}
+
+.btnInvest {
+  background: linear-gradient(135deg, #b794f6 0%, #9f7aea 100%);
+  box-shadow: 0 14px 28px rgba(159, 122, 234, 0.28);
 }
 
 @keyframes modalSweep {

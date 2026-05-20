@@ -1,5 +1,23 @@
 # Deploy na Hostinger
 
+Guia para publicar o site em **hospedagem Hostinger** com dominio `ocn.capital` (DNS na Hostinger, sem Netlify).
+
+## Migrar da Netlify para Hostinger (seu caso)
+
+1. No PC: `npm run build:hostinger` (gera `dist/`).
+2. hPanel → **Websites** → adicione/abra o site `ocn.capital` → **File Manager** → `public_html`.
+3. Apague arquivos antigos e envie **o conteudo** de `dist/` (incluindo `.htaccess`).
+4. **DNS** (hPanel → Dominios → DNS):
+   - Remova ou edite o **A** `@` que aponta para `75.2.60.5` (Netlify).
+   - **A** `@` → IP da hospedagem Hostinger (hPanel → Hospedagem → detalhes do plano).
+   - **CNAME** `www` → `@` ou conforme o assistente Hostinger.
+5. Aguarde propagacao (15 min a 24 h). Teste `https://ocn.capital`.
+6. Firebase (`ocean-capital-2ec85`): dominos `ocn.capital` e `www.ocn.capital` em Authorized domains.
+
+> So dominio sem plano de site: no hPanel use **Adicionar site** / hospedagem incluida no dominio antes do upload.
+
+---
+
 Este projeto pode ser publicado na Hostinger de duas formas:
 
 1. `Frontend apenas` na hospedagem comum da Hostinger
@@ -106,6 +124,18 @@ No Firebase, adicione seu dominio em:
 Inclua:
 - `seudominio.com`
 - `www.seudominio.com`
+
+### Firebase (projeto novo ou migracao)
+
+Guia passo a passo: [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
+
+### Marca nos e-mails (remover "eduardo")
+
+Se os e-mails de senha mostram `eduardo` ou `eduardo-99751.firebaseapp.com`, isso vem do **projeto Firebase**, nao do codigo do site. Migre com [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) ou renomeie no projeto antigo: [FIREBASE_REBRANDING.md](./FIREBASE_REBRANDING.md):
+
+1. Configuracoes do projeto → **Nome publico** = `Ocean Capital`
+2. (Recomendado) **Dominio personalizado** de Authentication → `auth.seudominio.com`
+3. Atualizar `VITE_FIREBASE_AUTH_DOMAIN` e gerar novo build
 
 ## 7. Dominio com e sem www
 

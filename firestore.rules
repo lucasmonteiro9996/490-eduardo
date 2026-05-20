@@ -21,7 +21,7 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.userUid == request.auth.uid
         && request.resource.data.status == 'pending'
-        && request.resource.data.type in ['deposit', 'withdraw']
+        && request.resource.data.type in ['deposit', 'withdraw', 'invest']
         && request.resource.data.amount is number
         && request.resource.data.amount > 0;
       allow update: if isAdmin()
@@ -48,8 +48,8 @@ service cloud.firestore {
 
       match /transactions/{docId} {
         allow read: if isAdmin() || isOwner(userId);
-        allow create: if isOwner(userId)
-          && request.resource.data.status == 'pending';
+        allow create: if isAdmin()
+          || (isOwner(userId) && request.resource.data.status == 'pending');
         allow update, delete: if isAdmin();
       }
 
@@ -58,6 +58,10 @@ service cloud.firestore {
       }
 
       match /bankAccounts/{docId} {
+        allow read, write: if isAdmin() || isOwner(userId);
+      }
+
+      match /investments/{docId} {
         allow read, write: if isAdmin() || isOwner(userId);
       }
 

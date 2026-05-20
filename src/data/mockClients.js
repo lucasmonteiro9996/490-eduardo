@@ -133,10 +133,10 @@ export const MOCK_CLIENTS = [
 ]
 
 export function getClientTotalUSD(client, brlToUsd = 1 / 5.75) {
-  return client.wallets.reduce((sum, w) => {
-    if (w.symbol === 'USD') return sum + (w.native || 0)
-    return sum + (w.native || 0) * brlToUsd
-  }, 0)
+  const brl = client.wallets.find((w) => w.symbol === 'BRL')?.native || 0
+  const usd = client.wallets.find((w) => w.symbol === 'USD')?.native || 0
+  const rate = brlToUsd > 0 ? brlToUsd : 1 / 5.75
+  return Math.max(usd, brl * rate)
 }
 
 export function formatNative(native, symbol) {

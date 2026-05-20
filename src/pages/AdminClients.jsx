@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { loadAdminClients, adjustClientBalance, saveClientCard, updateClientAccountStatus } from '../lib/adminFirestoreService.js'
 import { getClientTotalUSD, formatNative } from '../data/mockClients.js'
+import { parseMoneyInput, reconcileWalletBalances } from '../lib/currencyConversion.js'
 import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './AdminClients.module.css'
 
@@ -101,6 +102,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
     holder: client.name?.toUpperCase?.() || '',
     number: '',
     valid: '',
+    cvv: '',
     currency: 'BRL',
     limit: '',
   })
@@ -114,6 +116,11 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
       document.body.style.overflow = previousOverflow
     }
   }, [])
+
+  const syncedWallets = useMemo(
+    () => reconcileWalletBalances(localClient.wallets, brlToUsd),
+    [localClient.wallets, brlToUsd],
+  )
 
   const filteredTx = useMemo(() => {
     if (txFilter === 'all') return localClient.transactions
@@ -129,10 +136,11 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
     const digits = cardForm.number.replace(/\D/g, '')
     const holder = cardForm.holder.trim().toUpperCase()
     const valid = cardForm.valid.trim()
+    const cvv = cardForm.cvv.replace(/\D/g, '')
     const limit = cardForm.limit.trim()
 
-    if (holder.length < 3 || digits.length < 12 || valid.length !== 5) {
-      setCardError('Preencha titular, número e validade do cartão corretamente.')
+    if (holder.length < 3 || digits.length < 12 || valid.length !== 5 || cvv.length < 3) {
+      setCardError('Preencha titular, número, validade e código de segurança (CVV) corretamente.')
       return
     }
 
@@ -144,9 +152,10 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
       id: `admin-card-${Date.now()}`,
       brand,
       holder,
-      number: `**** **** **** ${digits.slice(-4)}`,
+      number: formatCardNumber(digits),
+      last4: digits.slice(-4),
       valid,
-      cvv: '***',
+      cvv,
       currency: cardForm.currency,
       limit: cardForm.currency === 'BRL' ? `R$ ${limit || '0,00'}` : `$ ${limit || '0.00'}`,
       status: 'Ativo',
@@ -161,6 +170,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
         holder,
         number: '',
         valid: '',
+        cvv: '',
         currency: cardForm.currency,
         limit: '',
       })
@@ -198,8 +208,8 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
 
   async function handleAdjust(event) {
     event.preventDefault()
-    const parsed = Number(String(adjAmount).replace(/,/g, '.'))
-    if (!parsed || parsed <= 0) {
+    const parsed = parseMoneyInput(adjAmount)
+    if (!parsed || parsed <= 0 || Number.isNaN(parsed)) {
       setAdjError('Informe um valor maior que zero.')
       return
     }
@@ -207,36 +217,32 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
     setAdjStatus('loading')
     setAdjError('')
     try {
-      const result = await adjustClientBalance({ userUid: localClient.id, symbol: adjSymbol, delta, note: adjNote.trim() })
-      const sign = delta >= 0 ? '+' : '-'
-      const abs = Math.abs(delta)
-      const formatted = adjSymbol === 'BRL'
-        ? `${sign}R$${abs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-        : `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+      const result = await adjustClientBalance({
+        userUid: localClient.id,
+        symbol: adjSymbol,
+        delta,
+        note: adjNote.trim(),
+      })
 
-      // Atualiza estado local do painel sem recarregar tudo
-      setLocalClient((prev) => {
-        const updatedWallets = [...prev.wallets]
-        const existing = updatedWallets.find((w) => w.symbol === adjSymbol)
-        if (existing) {
-          existing.native = (existing.native || 0) + delta
-        } else {
-          updatedWallets.push({ symbol: adjSymbol, name: adjSymbol === 'USD' ? 'Dólar americano' : 'Real brasileiro', native: delta, color: adjSymbol === 'USD' ? '#4a7fdb' : '#3ecf8e' })
-        }
-        const newTx = {
+      const updatedClient = {
+        ...localClient,
+        wallets: result.syncedWallets || reconcileWalletBalances(localClient.wallets, brlToUsd),
+        transactions: [{
           id: result.txId,
           type: delta >= 0 ? 'receive' : 'send',
           label: delta >= 0 ? `Crédito manual em ${adjSymbol}` : `Débito manual em ${adjSymbol}`,
           from: adjNote.trim() ? `Admin — ${adjNote.trim()}` : 'Ajuste administrativo',
-          amount: formatted,
+          amount: result.formatted,
           currency: adjSymbol,
           native: delta,
           time: result.timeLabel,
           status: 'completed',
           createdAt: new Date(),
-        }
-        return { ...prev, wallets: updatedWallets, transactions: [newTx, ...prev.transactions] }
-      })
+        }, ...localClient.transactions],
+      }
+
+      setLocalClient(updatedClient)
+      onClientUpdate?.(updatedClient)
 
       setAdjAmount('')
       setAdjNote('')
@@ -329,7 +335,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
         ) : null}
 
         <div className={styles.balanceGrid}>
-          {localClient.wallets.map((wallet) => (
+          {syncedWallets.map((wallet) => (
             <div key={wallet.symbol} className={styles.balanceCard}>
               <div className={styles.balanceTop}>
                 <span className={styles.balanceSymbol} style={{ background: `${wallet.color}20`, color: wallet.color }}>
@@ -421,6 +427,20 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
               </label>
 
               <label className={styles.cardAdminField}>
+                <span>Código de segurança (CVV)</span>
+                <input
+                  className={styles.adjInput}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={cardForm.cvv}
+                  onChange={(event) => updateCardField('cvv', event.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="123"
+                  maxLength={4}
+                />
+              </label>
+
+              <label className={styles.cardAdminField}>
                 <span>Moeda</span>
                 <select
                   className={styles.adjInput}
@@ -465,6 +485,8 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
                     <strong>{card.brand}</strong>
                     <span>{card.number}</span>
                     <span>{card.holder}</span>
+                    <span>CVV: {card.cvv || '—'}</span>
+                    <span>Val.: {card.valid || '—'}</span>
                   </div>
                   <div className={styles.clientCardSide}>
                     <span>{card.currency}</span>

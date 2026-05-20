@@ -55,7 +55,7 @@ export function AdminAuthProvider({ children }) {
         const session = buildSession(currentUser.email, currentUser.displayName)
         saveSession(session)
         setAdmin(session)
-      } else if (!currentUser) {
+      } else {
         clearSession()
         setAdmin(null)
       }

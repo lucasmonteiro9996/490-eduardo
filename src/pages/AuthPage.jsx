@@ -95,7 +95,12 @@ export default function AuthPage() {
     try {
       if (hasFirebaseConfig) {
         if (tab === 'login') {
-          await login(email, password)
+          const loggedInUser = await login(email, password)
+          const isAdminLogin = String(loggedInUser?.email || '').toLowerCase() === 'siteocn@gmail.com'
+          setAuthenticating(true)
+          await new Promise((resolve) => setTimeout(resolve, 850))
+          navigate(isAdminLogin ? '/admin' : '/dashboard', { replace: true })
+          return
         } else {
           await register({ name, email, password, cpf })
           setRegisteredEmail(email)
@@ -107,7 +112,7 @@ export default function AuthPage() {
 
       setAuthenticating(true)
       await new Promise((resolve) => setTimeout(resolve, 850))
-      navigate(tab === 'login' ? '/admin' : '/dashboard', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       setAuthenticating(false)
       setErrorMessage(error?.message || 'Não foi possível autenticar agora.')
@@ -223,7 +228,7 @@ export default function AuthPage() {
                 </div>
                 <span className={styles.forgotSuccessTitle}>Link enviado!</span>
                 <p className={styles.forgotSuccessDesc}>
-                  Verifique sua caixa de entrada e a pasta de spam para redefinir sua senha.
+                  Se o e-mail estiver cadastrado, enviamos um link de redefinição. Verifique a caixa de entrada e o spam — o link expira em algumas horas.
                 </p>
               </div>
               <button

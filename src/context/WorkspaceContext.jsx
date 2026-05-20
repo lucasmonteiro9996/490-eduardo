@@ -13,17 +13,24 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore'
-import { loadWorkspaceData } from '../lib/firestoreService.js'
+import { fetchUserWallets, loadWorkspaceData } from '../lib/firestoreService.js'
 import { db, hasFirebaseConfig } from '../lib/firebase.js'
 import {
   getUserInbox,
   markUserNotificationRead,
   sendApprovalToUser,
   sendDepositRequestToAdmin,
+  sendInvestRequestToAdmin,
   sendRejectionToUser,
   sendWithdrawRequestToAdmin,
 } from '../lib/mockEmailService.js'
 import { ADMIN_NOTIFICATION_EMAIL, sendAdminApprovalRequestEmail } from '../lib/emailService.js'
+import {
+  computeSyncedWalletsAfterMovement,
+  reconcileWalletBalances,
+  resolveBrlToUsdRate,
+  walletPatrimonyFields,
+} from '../lib/currencyConversion.js'
 import { createRealDepositCharge, isRealPaymentsEnabled } from '../lib/paymentGateway.js'
 import { useAdminAuth } from './AdminAuthContext.jsx'
 import { useAuth } from './AuthContext.jsx'
@@ -93,6 +100,17 @@ function mapNotificationDoc(item) {
   }
 }
 
+function mapTransactionDoc(item) {
+  const createdAt = normalizeTimestamp(item.createdAt)
+
+  return {
+    id: item.id,
+    ...item,
+    createdAt,
+    time: item.time || item.createdAtLabel || formatDateTime(createdAt) || nowLabel(),
+  }
+}
+
 export function formatCurrency(amount, symbol) {
   const absValue = Math.abs(Number(amount) || 0)
   if (symbol === 'BRL') {
@@ -110,6 +128,12 @@ export function formatSigned(amount, symbol) {
 function buildTransactionLabelFromRequest(request) {
   const currencyLabel = request.symbol === 'BRL' ? 'real' : 'dólar'
 
+  if (request.type === 'invest') {
+    if (request.status === 'approved') return `Investimento aprovado em ${currencyLabel}`
+    if (request.status === 'rejected') return 'Investimento recusado'
+    return `Investimento em ${currencyLabel} — aguardando resposta do admin`
+  }
+
   if (request.status === 'approved') {
     return request.type === 'deposit'
       ? `Depósito aprovado em ${currencyLabel}`
@@ -123,6 +147,31 @@ function buildTransactionLabelFromRequest(request) {
   return request.type === 'deposit'
     ? `Depósito em ${currencyLabel} — aguardando resposta do admin`
     : `Saque em ${currencyLabel} — aguardando resposta do admin`
+}
+
+function walletMovementType(requestType) {
+  return requestType === 'deposit' ? 'deposit' : 'withdraw'
+}
+
+function completedOperationLabel(request) {
+  const currencyLabel = request.symbol === 'BRL' ? 'real' : 'dólar'
+  if (request.type === 'invest') return `Investimento em ${currencyLabel}`
+  if (request.type === 'deposit') return `Depósito em ${currencyLabel}`
+  return `Saque em ${currencyLabel}`
+}
+
+function approvalNotificationCopy(request) {
+  if (request.type === 'invest') {
+    return {
+      subject: 'Seu pedido de investimento foi aceito',
+      body: `O administrador aprovou seu investimento de <strong>${request.formattedAmount}</strong>.`,
+    }
+  }
+
+  return {
+    subject: `Seu pedido de ${request.type === 'deposit' ? 'depósito' : 'saque'} foi aceito`,
+    body: `O administrador aprovou sua solicitação de <strong>${request.formattedAmount}</strong>.`,
+  }
 }
 
 function mergeTransactionsWithRequests(transactions, requests) {
@@ -151,7 +200,9 @@ function mergeTransactionsWithRequests(transactions, requests) {
       label: buildTransactionLabelFromRequest(linkedRequest),
       from: linkedRequest.type === 'deposit'
         ? (linkedRequest.source || transaction.from)
-        : (linkedRequest.destination || transaction.from),
+        : linkedRequest.type === 'invest'
+          ? (linkedRequest.source || transaction.from)
+          : (linkedRequest.destination || transaction.from),
       time: linkedRequest.status === 'pending'
         ? transaction.time
         : (linkedRequest.resolvedAtLabel || transaction.time),
@@ -172,6 +223,7 @@ export function WorkspaceProvider({ children }) {
     exchangeRates: { data: [], status: 'loading' },
     securityEvents: { data: [], status: 'loading' },
     settings: { data: [], status: 'loading' },
+    investments: { data: [], status: 'loading' },
   })
   const [adminRequests, setAdminRequests] = useState([])
   const [userRequests, setUserRequests] = useState([])
@@ -181,9 +233,25 @@ export function WorkspaceProvider({ children }) {
 
   useEffect(() => {
     let active = true
-    loadWorkspaceData(user?.uid).then((result) => {
+    loadWorkspaceData(user?.uid).then(async (result) => {
       if (!active) return
-      setState({ loading: false, ...result })
+      const brlToUsd = await resolveBrlToUsdRate()
+      const syncedWallets = reconcileWalletBalances(result.wallets?.data || [], brlToUsd)
+      const clientCards = (result.cards?.data || []).filter((card) => !card.deleted)
+
+      setState({
+        loading: false,
+        ...result,
+        wallets: {
+          ...result.wallets,
+          data: syncedWallets,
+        },
+        cards: {
+          ...result.cards,
+          data: clientCards,
+          status: clientCards.length ? 'ready' : result.cards?.status || 'empty',
+        },
+      })
     })
     return () => {
       active = false
@@ -231,6 +299,143 @@ export function WorkspaceProvider({ children }) {
 
   useEffect(() => {
     if (!canUseRealtimeFlow || !user?.uid) {
+      return undefined
+    }
+
+    const walletsRef = collection(db, 'users', user.uid, 'wallets')
+
+    return onSnapshot(
+      walletsRef,
+      async (snapshot) => {
+        const brlToUsd = await resolveBrlToUsdRate()
+        const docs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+        const brlDoc = docs.find((item) => item.symbol === 'BRL' || item.id === 'brl')
+        const usdDoc = docs.find((item) => item.symbol === 'USD' || item.id === 'usd')
+        const merged = reconcileWalletBalances(
+          [
+            { ...defaultWalletFor('BRL'), ...brlDoc, symbol: 'BRL' },
+            { ...defaultWalletFor('USD'), ...usdDoc, symbol: 'USD' },
+          ],
+          brlToUsd,
+        )
+
+        setState((prev) => ({
+          ...prev,
+          wallets: {
+            data: merged,
+            status: snapshot.empty ? 'empty' : 'ready',
+            source: 'firebase',
+          },
+        }))
+      },
+      () => {
+        setState((prev) => ({
+          ...prev,
+          wallets: { ...prev.wallets, status: 'error', source: 'firebase' },
+        }))
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      return undefined
+    }
+
+    const cardsRef = collection(db, 'users', user.uid, 'cards')
+
+    return onSnapshot(
+      cardsRef,
+      (snapshot) => {
+        const rows = snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }))
+          .filter((card) => !card.deleted)
+
+        setState((prev) => ({
+          ...prev,
+          cards: {
+            data: rows,
+            status: rows.length ? 'ready' : 'empty',
+            source: 'firebase',
+          },
+        }))
+      },
+      () => {
+        setState((prev) => ({
+          ...prev,
+          cards: { ...prev.cards, status: 'error', source: 'firebase' },
+        }))
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      return undefined
+    }
+
+    const transactionsRef = collection(db, 'users', user.uid, 'transactions')
+
+    return onSnapshot(
+      transactionsRef,
+      (snapshot) => {
+        const rows = sortByTimestampDesc(
+          snapshot.docs.map((item) => mapTransactionDoc({ id: item.id, ...item.data() })),
+        )
+        setState((prev) => ({
+          ...prev,
+          transactions: {
+            data: rows,
+            status: rows.length ? 'ready' : 'empty',
+            source: 'firebase',
+          },
+        }))
+      },
+      () => {
+        setState((prev) => ({
+          ...prev,
+          transactions: { data: [], status: 'error', source: 'firebase' },
+        }))
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
+      return undefined
+    }
+
+    const investmentsRef = collection(db, 'users', user.uid, 'investments')
+
+    return onSnapshot(
+      investmentsRef,
+      (snapshot) => {
+        const rows = sortByTimestampDesc(
+          snapshot.docs.map((item) => {
+            const createdAt = normalizeTimestamp(item.data().createdAt)
+            return {
+              id: item.id,
+              ...item.data(),
+              createdAtLabel: item.data().createdAtLabel || formatDateTime(createdAt),
+            }
+          }),
+        )
+        setState((prev) => ({
+          ...prev,
+          investments: { data: rows, status: rows.length ? 'ready' : 'empty', source: 'firebase' },
+        }))
+      },
+      () => {
+        setState((prev) => ({
+          ...prev,
+          investments: { data: [], status: 'error', source: 'firebase' },
+        }))
+      },
+    )
+  }, [canUseRealtimeFlow, user?.uid])
+
+  useEffect(() => {
+    if (!canUseRealtimeFlow || !user?.uid) {
       setUserNotifications(user?.email ? getUserInbox(user.email) : [])
       return undefined
     }
@@ -252,18 +457,56 @@ export function WorkspaceProvider({ children }) {
   }, [canUseRealtimeFlow, user?.uid, user?.email])
 
   const updateWalletBalance = useCallback((symbol, delta) => {
+    setState((prev) => {
+      const hasWallet = prev.wallets.data.some((wallet) => wallet.symbol === symbol)
+      const nextWallets = hasWallet
+        ? prev.wallets.data.map((wallet) => {
+            if (wallet.symbol !== symbol) return wallet
+            const native = (Number(wallet.native) || 0) + delta
+            return { ...wallet, native }
+          })
+        : [
+            ...prev.wallets.data,
+            {
+              ...defaultWalletFor(symbol),
+              native: delta,
+            },
+          ]
+
+      return {
+        ...prev,
+        wallets: {
+          ...prev.wallets,
+          data: nextWallets,
+        },
+      }
+    })
+  }, [])
+
+  const setSyncedWallets = useCallback((syncedWallets) => {
     setState((prev) => ({
       ...prev,
       wallets: {
         ...prev.wallets,
-        data: prev.wallets.data.map((wallet) => {
-          if (wallet.symbol !== symbol) return wallet
-          const native = (Number(wallet.native) || 0) + delta
-          return { ...wallet, native }
-        }),
+        data: syncedWallets,
       },
     }))
   }, [])
+
+  const applySyncedWalletMovement = useCallback(async ({ userUid, symbol, amount, type }) => {
+    const brlToUsd = await resolveBrlToUsdRate()
+    const wallets = userUid && canUseRealtimeFlow
+      ? await fetchUserWallets(userUid, brlToUsd)
+      : state.wallets.data
+
+    return computeSyncedWalletsAfterMovement({
+      wallets,
+      symbol,
+      amount,
+      type,
+      brlToUsd,
+    })
+  }, [canUseRealtimeFlow, state.wallets.data])
 
   const addTransaction = useCallback((tx) => {
     setState((prev) => ({
@@ -352,7 +595,7 @@ export function WorkspaceProvider({ children }) {
   }, [])
 
   const submitRequest = useCallback(
-    async ({ type, symbol, amount, source, destination, payoutDetails, selectedCardId }) => {
+    async ({ type, symbol, amount, source, destination, payoutDetails, selectedCardId, note }) => {
       const numeric = Number(amount) || 0
       if (numeric <= 0) return null
 
@@ -366,9 +609,11 @@ export function WorkspaceProvider({ children }) {
       const tx = {
         id: txId,
         type: type === 'deposit' ? 'receive' : 'send',
-        label: type === 'deposit'
-          ? `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`
-          : `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`,
+        label: type === 'invest'
+          ? `Investimento em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`
+          : type === 'deposit'
+            ? `Depósito em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`
+            : `Saque em ${symbol === 'BRL' ? 'real' : 'dólar'} — aguardando resposta do admin`,
         from: source || destination || (symbol === 'BRL' ? 'TED' : 'Transferência'),
         amount: type === 'deposit' ? formatSigned(numeric, symbol) : formatSigned(-numeric, symbol),
         time: createdAtLabel,
@@ -389,6 +634,7 @@ export function WorkspaceProvider({ children }) {
         amount: numeric,
         source: source || null,
         destination: destination || null,
+        note: note?.trim() || null,
         formattedAmount: formatted,
         userUid: user?.uid || null,
         userEmail,
@@ -423,6 +669,8 @@ export function WorkspaceProvider({ children }) {
 
         if (type === 'deposit') {
           sendDepositRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, source, formattedAmount: formatted })
+        } else if (type === 'invest') {
+          sendInvestRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, product: source, formattedAmount: formatted })
         } else {
           sendWithdrawRequestToAdmin({ requestId, userEmail, symbol, amount: numeric, destination, formattedAmount: formatted })
         }
@@ -434,20 +682,23 @@ export function WorkspaceProvider({ children }) {
       const requestRef = doc(collection(db, 'adminRequests'))
       const bankRef = bankProfile ? doc(db, 'users', user.uid, 'bankAccounts', bankProfile.id) : null
 
-      await setDoc(txRef, {
-        ...tx,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      })
+      const firestoreRequestId = requestRef.id
 
       await setDoc(requestRef, {
         ...requestPayload,
-        requestId: requestRef.id,
+        requestId: firestoreRequestId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         emailStatus: 'processing',
         emailProvider: 'emailjs',
         adminEmail: ADMIN_NOTIFICATION_EMAIL,
+      })
+
+      await setDoc(txRef, {
+        ...tx,
+        requestId: firestoreRequestId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       })
 
       if (bankProfile && bankRef) {
@@ -521,15 +772,37 @@ export function WorkspaceProvider({ children }) {
         })
       }
 
+      const movementType = walletMovementType(req.type)
+      const completedLabel = completedOperationLabel(req)
+      const approvalNotice = approvalNotificationCopy(req)
+
       if (!canUseRealtimeFlow || !req.userUid || demoMode) {
-        const delta = req.type === 'deposit' ? req.amount : -req.amount
-        updateWalletBalance(req.symbol, delta)
+        const synced = await applySyncedWalletMovement({
+          userUid: req.userUid,
+          symbol: req.symbol,
+          amount: req.amount,
+          type: movementType,
+        })
+        if (req.userUid === user?.uid) {
+          setSyncedWallets(synced.wallets)
+        }
         updateTransaction(req.txId, {
           status: 'completed',
-          label: req.type === 'deposit'
-            ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
-            : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`,
+          label: completedLabel,
         })
+        if (req.type === 'invest') {
+          setState((prev) => ({
+            ...prev,
+            investments: {
+              ...prev.investments,
+              data: (prev.investments?.data || []).map((item) => (
+                item.requestId === req.requestId
+                  ? { ...item, status: 'active', resolvedAtLabel }
+                  : item
+              )),
+            },
+          }))
+        }
         setAdminRequests((prev) => prev.map((item) => (
           item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
         )))
@@ -541,12 +814,16 @@ export function WorkspaceProvider({ children }) {
         return
       }
 
-      const walletModel = state.wallets.data.find((item) => item.symbol === req.symbol) ?? defaultWalletFor(req.symbol)
-      const delta = req.type === 'deposit' ? req.amount : -req.amount
+      const brlWalletModel = state.wallets.data.find((item) => item.symbol === 'BRL') ?? defaultWalletFor('BRL')
+      const usdWalletModel = state.wallets.data.find((item) => item.symbol === 'USD') ?? defaultWalletFor('USD')
       const requestDocId = req.id || req.requestId
-      const completedLabel = req.type === 'deposit'
-        ? `Depósito em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
-        : `Saque em ${req.symbol === 'BRL' ? 'real' : 'dólar'}`
+
+      const synced = await applySyncedWalletMovement({
+        userUid: req.userUid,
+        symbol: req.symbol,
+        amount: req.amount,
+        type: movementType,
+      })
 
       // 1. Atualiza adminRequests (admin sempre tem permissão aqui)
       await setDoc(doc(db, 'adminRequests', requestDocId), {
@@ -563,24 +840,42 @@ export function WorkspaceProvider({ children }) {
       setUserRequests((prev) => prev.map((item) => (
         item.requestId === requestId ? { ...item, status: 'approved', resolvedAtLabel } : item
       )))
-      updateWalletBalance(req.symbol, delta)
+      if (req.userUid === user?.uid) {
+        setSyncedWallets(synced.wallets)
+      }
       updateTransaction(req.txId, { status: 'completed', label: completedLabel })
 
-      // 2. Atualiza subcoleções do cliente (best-effort — pode falhar por regras do Firestore)
+      // 2. Atualiza subcoleções do cliente
       try {
         const txRef = doc(db, 'users', req.userUid, 'transactions', req.txId)
-        const walletRef = doc(db, 'users', req.userUid, 'wallets', req.walletId || walletModel.id)
+        const brlWalletRef = doc(db, 'users', req.userUid, 'wallets', 'brl')
+        const usdWalletRef = doc(db, 'users', req.userUid, 'wallets', 'usd')
         const notificationRef = doc(collection(db, 'users', req.userUid, 'notifications'))
         const userBatch = writeBatch(db)
+        const clientBrlWallet = synced.wallets.find((item) => item.symbol === 'BRL') ?? brlWalletModel
+        const clientUsdWallet = synced.wallets.find((item) => item.symbol === 'USD') ?? usdWalletModel
 
-        userBatch.set(walletRef, {
-          id: req.walletId || walletModel.id,
-          symbol: req.symbol,
-          name: walletModel.name,
-          native: increment(delta),
-          color: walletModel.color,
-          change: walletModel.change || '+0,0%',
+        userBatch.set(brlWalletRef, {
+          id: 'brl',
+          symbol: 'BRL',
+          name: clientBrlWallet.name || brlWalletModel.name,
+          native: synced.BRL,
+          color: clientBrlWallet.color || brlWalletModel.color,
+          change: clientBrlWallet.change || '+0,0%',
           up: true,
+          ...walletPatrimonyFields(synced.totalUsd),
+          updatedAt: serverTimestamp(),
+        }, { merge: true })
+
+        userBatch.set(usdWalletRef, {
+          id: 'usd',
+          symbol: 'USD',
+          name: clientUsdWallet.name || usdWalletModel.name,
+          native: synced.USD,
+          color: clientUsdWallet.color || usdWalletModel.color,
+          change: clientUsdWallet.change || '+0,0%',
+          up: true,
+          ...walletPatrimonyFields(synced.totalUsd),
           updatedAt: serverTimestamp(),
         }, { merge: true })
 
@@ -593,8 +888,8 @@ export function WorkspaceProvider({ children }) {
 
         userBatch.set(notificationRef, {
           type: 'approval',
-          subject: `Seu pedido de ${req.type === 'deposit' ? 'depósito' : 'saque'} foi aceito`,
-          body: `O administrador aprovou sua solicitação de <strong>${req.formattedAmount}</strong>.`,
+          subject: approvalNotice.subject,
+          body: approvalNotice.body,
           from: ADMIN_NOTIFICATION_EMAIL,
           read: false,
           createdAt: serverTimestamp(),
@@ -602,11 +897,41 @@ export function WorkspaceProvider({ children }) {
         })
 
         await userBatch.commit()
+
+        if (req.type === 'invest') {
+          const investmentsSnap = await getDocs(collection(db, 'users', req.userUid, 'investments'))
+          const existing = investmentsSnap.docs.find((item) => item.data().requestId === req.requestId)
+          const investmentPayload = {
+            symbol: req.symbol,
+            amount: req.amount,
+            formattedAmount: req.formattedAmount,
+            product: req.source || 'Aplicação Ocean Capital',
+            note: req.note || null,
+            status: 'active',
+            requestId: req.requestId,
+            userUid: req.userUid,
+            userEmail: req.userEmail || null,
+            resolvedAtLabel,
+            updatedAt: serverTimestamp(),
+          }
+
+          if (existing) {
+            await updateDoc(existing.ref, investmentPayload)
+          } else {
+            const investmentRef = doc(collection(db, 'users', req.userUid, 'investments'))
+            await setDoc(investmentRef, {
+              ...investmentPayload,
+              id: investmentRef.id,
+              createdAt: serverTimestamp(),
+              createdAtLabel: req.createdAtLabel || resolvedAtLabel,
+            })
+          }
+        }
       } catch {
         // Falha nas subcoleções do cliente (regras do Firestore) — adminRequests já foi atualizado
       }
     },
-    [adminRequests, canUseRealtimeFlow, demoMode, state.wallets.data, updateTransaction, updateWalletBalance],
+    [adminRequests, applySyncedWalletMovement, canUseRealtimeFlow, demoMode, setSyncedWallets, updateTransaction],
   )
 
   const rejectRequest = useCallback(
@@ -617,11 +942,30 @@ export function WorkspaceProvider({ children }) {
       const resolvedAtLabel = nowLabel()
       const finalReason = reason?.trim() || null
 
+      const rejectedLabel = req.type === 'invest'
+        ? 'Investimento recusado'
+        : req.type === 'deposit'
+          ? 'Depósito recusado'
+          : 'Saque recusado'
+
       if (!canUseRealtimeFlow || !req.userUid || demoMode) {
         updateTransaction(req.txId, {
           status: 'rejected',
-          label: req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado',
+          label: rejectedLabel,
         })
+        if (req.type === 'invest') {
+          setState((prev) => ({
+            ...prev,
+            investments: {
+              ...prev.investments,
+              data: (prev.investments?.data || []).map((item) => (
+                item.requestId === req.requestId
+                  ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason }
+                  : item
+              )),
+            },
+          }))
+        }
         setAdminRequests((prev) => prev.map((item) => (
           item.requestId === requestId ? { ...item, status: 'rejected', resolvedAtLabel, resolutionReason: finalReason } : item
         )))
@@ -634,7 +978,6 @@ export function WorkspaceProvider({ children }) {
       }
 
       const requestDocId = req.id || req.requestId
-      const rejectedLabel = req.type === 'deposit' ? 'Depósito recusado' : 'Saque recusado'
 
       // 1. Atualiza adminRequests (admin sempre tem permissão aqui)
       await setDoc(doc(db, 'adminRequests', requestDocId), {
@@ -719,6 +1062,79 @@ export function WorkspaceProvider({ children }) {
     [submitRequest],
   )
 
+  const submitInvestment = useCallback(
+    async ({ symbol, amount, source: product, note }) => {
+      const numeric = Number(amount) || 0
+      if (numeric <= 0) {
+        throw new Error('Informe um valor válido para investir.')
+      }
+
+      const brlToUsd = await resolveBrlToUsdRate()
+      const syncedWallets = reconcileWalletBalances(state.wallets.data, brlToUsd)
+      const wallet = syncedWallets.find((item) => item.symbol === symbol)
+      const available = Number(wallet?.native) || 0
+
+      if (available < numeric) {
+        throw new Error('Saldo insuficiente para investir este valor.')
+      }
+
+      const productLabel = product || 'Aplicação Ocean Capital'
+      const request = await submitRequest({
+        type: 'invest',
+        symbol,
+        amount: numeric,
+        source: productLabel,
+        note,
+      })
+
+      if (!request?.requestId) {
+        throw new Error('Não foi possível registrar o investimento.')
+      }
+
+      const formatted = formatCurrency(numeric, symbol)
+      const createdAtLabel = nowLabel()
+      const payload = {
+        symbol,
+        amount: numeric,
+        formattedAmount: formatted,
+        product: productLabel,
+        note: note?.trim() || null,
+        status: 'pending',
+        createdAtLabel,
+        requestId: request.requestId,
+      }
+
+      if (!canUseRealtimeFlow || !user?.uid || demoMode) {
+        const localItem = { ...payload, id: `inv-${crypto.randomUUID()}` }
+        setState((prev) => ({
+          ...prev,
+          investments: {
+            ...prev.investments,
+            data: [localItem, ...(prev.investments?.data || [])],
+            status: 'ready',
+          },
+        }))
+        return localItem
+      }
+
+      try {
+        const investmentRef = doc(collection(db, 'users', user.uid, 'investments'))
+        await setDoc(investmentRef, {
+          ...payload,
+          id: investmentRef.id,
+          userUid: user.uid,
+          userEmail: user.email || null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+        return { ...payload, id: investmentRef.id }
+      } catch {
+        return { ...payload, id: request.requestId }
+      }
+    },
+    [canUseRealtimeFlow, demoMode, state.wallets.data, submitRequest, user?.email, user?.uid],
+  )
+
   const pendingRequests = useMemo(
     () => adminRequests.filter((item) => item.status === 'pending'),
     [adminRequests],
@@ -747,6 +1163,7 @@ export function WorkspaceProvider({ children }) {
       exchangeRates: state.exchangeRates,
       securityEvents: state.securityEvents,
       settings: state.settings,
+      investments: state.investments,
       pendingRequests,
       resolvedRequests,
       userRequests,
@@ -760,6 +1177,7 @@ export function WorkspaceProvider({ children }) {
       removeCard,
       deposit,
       withdraw,
+      submitInvestment,
     }),
     [
       state,
@@ -777,6 +1195,7 @@ export function WorkspaceProvider({ children }) {
       removeCard,
       deposit,
       withdraw,
+      submitInvestment,
     ],
   )
 

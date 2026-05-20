@@ -1,5 +1,7 @@
 import { collection, getDocs, limit, query } from 'firebase/firestore'
 import { db, hasFirebaseConfig } from './firebase.js'
+import { reconcileWalletBalances } from './currencyConversion.js'
+import { fetchBrlToUsd } from './exchangeRateService.js'
 import {
   mockCards,
   mockRates,
@@ -17,6 +19,7 @@ const FALLBACK_DATA = {
   exchangeRates: mockRates,
   securityEvents: mockSecurityEvents,
   settings: mockSettings,
+  investments: [],
 }
 
 function normalizeDocs(snapshot) {
@@ -56,15 +59,45 @@ async function readCollection(uid, collectionName, size = 12) {
   }
 }
 
+const DEFAULT_WALLETS = [
+  { id: 'brl', symbol: 'BRL', name: 'Real brasileiro', native: 0, change: '+0,0%', up: true, color: '#3ecf8e' },
+  { id: 'usd', symbol: 'USD', name: 'Dólar americano', native: 0, change: '+0,0%', up: true, color: '#4a7fdb' },
+]
+
+export async function fetchUserWallets(uid, brlToUsd) {
+  if (!hasFirebaseConfig || !db || !uid) {
+    return DEFAULT_WALLETS
+  }
+
+  try {
+    const snapshot = await getDocs(collection(db, 'users', uid, 'wallets'))
+    const docs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+    const rate = brlToUsd > 0 ? brlToUsd : await fetchBrlToUsd()
+    const brlDoc = docs.find((item) => item.symbol === 'BRL' || item.id === 'brl')
+    const usdDoc = docs.find((item) => item.symbol === 'USD' || item.id === 'usd')
+
+    return reconcileWalletBalances(
+      [
+        { ...DEFAULT_WALLETS[0], ...brlDoc, symbol: 'BRL' },
+        { ...DEFAULT_WALLETS[1], ...usdDoc, symbol: 'USD' },
+      ],
+      rate,
+    )
+  } catch {
+    return DEFAULT_WALLETS
+  }
+}
+
 export async function loadWorkspaceData(uid) {
-  const [wallets, transactions, cards, bankAccounts, exchangeRates, securityEvents, settings] = await Promise.all([
+  const [wallets, transactions, cards, bankAccounts, exchangeRates, securityEvents, settings, investments] = await Promise.all([
     readCollection(uid, 'wallets'),
-    readCollection(uid, 'transactions'),
+    readCollection(uid, 'transactions', 100),
     readCollection(uid, 'cards'),
     readCollection(uid, 'bankAccounts'),
     readCollection(uid, 'exchangeRates'),
     readCollection(uid, 'securityEvents'),
     readCollection(uid, 'settings'),
+    readCollection(uid, 'investments', 50),
   ])
 
   return {
@@ -75,5 +108,6 @@ export async function loadWorkspaceData(uid) {
     exchangeRates,
     securityEvents,
     settings,
+    investments,
   }
 }

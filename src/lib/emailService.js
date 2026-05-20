@@ -41,8 +41,10 @@ export async function sendAdminApprovalRequestEmail({
     }
   }
 
-  const operationLabel = type === 'deposit' ? 'Depósito' : 'Saque'
-  const routeLabel = type === 'deposit' ? (source || 'Não informado') : (destination || 'Não informado')
+  const operationLabel = type === 'deposit' ? 'Depósito' : type === 'invest' ? 'Investimento' : 'Saque'
+  const routeLabel = type === 'deposit' || type === 'invest'
+    ? (source || 'Não informado')
+    : (destination || 'Não informado')
   const adminPanelUrl = getAdminPanelUrl()
 
   try {

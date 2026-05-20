@@ -9,30 +9,23 @@ npm install
 npm run build
 ```
 
-## Deploy na Hostinger
+## Deploy (producao)
 
-1. Crie o arquivo `.env.production` com as variaveis `VITE_*` do projeto.
-2. Gere o pacote de publicacao:
+**Setup:** site na **Netlify**, dominio com DNS na **Hostinger**.
 
-```bash
-npm run build:hostinger
-```
+Guia: [NETLIFY_DEPLOY.md](./NETLIFY_DEPLOY.md)
 
-3. Envie o conteudo da pasta `dist/` para `public_html/` no hPanel.
-4. Confirme que o `.htaccess` foi publicado junto com o build para manter as rotas SPA.
-5. No Firebase, autorize o dominio da Hostinger em `Authentication > Settings > Authorized domains`.
+1. Variaveis `VITE_*` no painel Netlify (Environment variables).
+2. Deploy: Git push, `netlify deploy --prod` ou arrastar `dist/` apos `npm run build`.
+3. Hostinger: DNS apontando para Netlify (A/CNAME).
+4. Firebase: autorizar `ocn.capital`, `www.ocn.capital` e `*.netlify.app`.
 
-## Deploy na Netlify
+Hospedagem so em `public_html` (sem Netlify): [HOSTINGER_DEPLOY.md](./HOSTINGER_DEPLOY.md)
 
-Use estas configuracoes:
+## Netlify
 
-- Build command: `npm run build`
-- Publish directory: `dist`
-
-As rotas SPA ja estao cobertas por:
-
+- Build: `npm run build` — Publish: `dist`
 - [netlify.toml](./netlify.toml)
-- [public/_redirects](./public/_redirects)
 
 ## Variaveis de ambiente
 
@@ -53,11 +46,16 @@ VITE_EMAILJS_PUBLIC_KEY=
 
 ## Firebase
 
+Guia completo (criar projeto novo, regras, `.env`, Hostinger, migração):
+
+- [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
+
 Antes de publicar em producao:
 
 1. Ative `Authentication > Email/Password`
 2. Ative `Firestore Database`
 3. Adicione os dominios de producao em `Authentication > Settings > Authorized domains`
+4. Publique as regras: `firebase deploy --only firestore:rules`
 
 Domínios para autorizar:
 

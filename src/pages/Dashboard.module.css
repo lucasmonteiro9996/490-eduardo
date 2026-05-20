@@ -386,8 +386,12 @@
 
 .dashboardStats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.dashboardStatsTriple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboardStatCard {
@@ -448,9 +452,13 @@
   opacity: 0.86;
 }
 
+.statAccentPurple {
+  color: #b794f6;
+}
+
 .dashboardActions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -504,6 +512,16 @@
     inset 0px -4px 0px 0px rgba(0, 0, 0, 0.2),
     0px 0px 0px 4px rgba(255, 255, 255, 0.2),
     0px 0px 180px 0px #3272f5;
+  transform: translateY(-2px);
+}
+
+.actionPurple:hover {
+  background: linear-gradient(0deg, #b794f6, #9f7aea);
+  box-shadow:
+    inset 0px 1px 0px 0px rgba(255, 255, 255, 0.4),
+    inset 0px -4px 0px 0px rgba(0, 0, 0, 0.2),
+    0px 0px 0px 4px rgba(255, 255, 255, 0.2),
+    0px 0px 180px 0px #9f7aea;
   transform: translateY(-2px);
 }
 
@@ -657,6 +675,29 @@
   transform: translateY(-1px);
 }
 
+.walletUnified {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "symbol info"
+    "balances balances";
+  gap: 14px 12px;
+  align-items: start;
+  cursor: default;
+}
+
+.walletUnified:hover {
+  transform: none;
+}
+
+.walletUnified .walletAmount {
+  white-space: normal;
+  line-height: 1.45;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: rgba(232, 225, 219, 0.62);
+}
+
 .walletActive {
   background: rgba(74, 127, 219, 0.1) !important;
   border-color: rgba(74, 127, 219, 0.35) !important;
@@ -716,6 +757,49 @@
 .walletChange {
   font-size: 0.74rem;
   font-weight: 600;
+}
+
+.walletBalances {
+  grid-area: balances;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+}
+
+.walletUnified .walletSymbolWrap {
+  grid-area: symbol;
+}
+
+.walletUnified .walletInfo {
+  grid-area: info;
+}
+
+.walletBalancePill {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(2, 8, 20, 0.5);
+  border: 1px solid rgba(108, 144, 230, 0.16);
+  min-width: 0;
+}
+
+.walletBalancePill span {
+  font-size: 0.64rem;
+  color: rgba(232, 225, 219, 0.48);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.walletBalancePill strong {
+  color: var(--light-main);
+  font-size: clamp(0.88rem, 2.4vw, 1rem);
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 /* ── Stats ── */
@@ -995,13 +1079,14 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
+  overflow: visible;
 }
 
 .cardShowcase {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
+  padding: 18px 18px 22px;
   background:
     radial-gradient(circle at top right, rgba(74, 127, 219, 0.12) 0%, transparent 28%),
     rgba(12, 21, 40, 0.78);
@@ -1009,6 +1094,13 @@
   border-radius: 20px;
   align-items: center;
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.14);
+  overflow: visible;
+  min-height: 280px;
+}
+
+.cardShowcase > :nth-child(2) {
+  padding: 6px 0 10px;
+  overflow: visible;
 }
 
 .cardActions {
@@ -1324,8 +1416,12 @@
   }
 
   .dashboardStats,
-  .dashboardActions {
+  .dashboardStatsTriple {
     grid-template-columns: 1fr;
+  }
+
+  .dashboardActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .cardComposerGrid {
@@ -1342,6 +1438,26 @@
   .statementHead span:nth-child(3),
   .statementRow > .txStatus {
     display: none;
+  }
+
+  .walletItem {
+    padding: 14px;
+  }
+
+  .walletBalancePill {
+    padding: 10px 12px;
+  }
+}
+
+@media (min-width: 901px) {
+  .walletUnified {
+    grid-template-columns: auto minmax(0, 1fr) minmax(240px, 36%);
+    grid-template-areas: "symbol info balances";
+    align-items: center;
+  }
+
+  .walletUnified .walletBalances {
+    align-self: center;
   }
 }
 
@@ -1446,6 +1562,20 @@
 
   .statsGrid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .walletUnified {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .walletBalances {
+    grid-template-columns: 1fr;
+  }
+
+  .walletSymbol {
+    width: 40px;
+    height: 40px;
   }
 
   .cardFieldRow {

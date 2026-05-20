@@ -52,6 +52,27 @@ export function sendDepositRequestToAdmin({ requestId, userEmail, symbol, amount
 /**
  * Simula envio de email ao admin solicitando saque.
  */
+export function sendInvestRequestToAdmin({ requestId, userEmail, symbol, amount, product, formattedAmount }) {
+  const email = {
+    id: `email-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    requestId,
+    to: ADMIN_EMAIL,
+    from: userEmail || 'cliente@oceancapital.com',
+    subject: `Solicitação de investimento — ${formattedAmount}`,
+    body: `O cliente ${userEmail} solicita investir ${formattedAmount} em ${product || 'aplicação'}. Por favor, avalie e aprove ou recuse a operação.`,
+    type: 'invest',
+    symbol,
+    amount,
+    source: product,
+    userEmail: userEmail || 'cliente@oceancapital.com',
+    formattedAmount,
+    sentAt: nowLabel(),
+    status: 'pending',
+  }
+  adminInbox = [email, ...adminInbox]
+  return email
+}
+
 export function sendWithdrawRequestToAdmin({ requestId, userEmail, symbol, amount, destination, formattedAmount }) {
   const email = {
     id: `email-${Date.now()}-${Math.random().toString(36).slice(2)}`,

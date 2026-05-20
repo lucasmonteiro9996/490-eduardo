@@ -1,0 +1,16 @@
+# Cole estas variáveis em Netlify → Site configuration → Environment variables
+# Uma por linha no painel (nome = chave, valor = após o =)
+
+VITE_FIREBASE_API_KEY=AIzaSyAAkrbkmYpkCq1uJmOtQ1BsgEE3i-pYmUY
+VITE_FIREBASE_AUTH_DOMAIN=ocean-capital-2ec85.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=ocean-capital-2ec85
+VITE_FIREBASE_STORAGE_BUCKET=ocean-capital-2ec85.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=1039213725592
+VITE_FIREBASE_APP_ID=1:1039213725592:web:ffd3e2d672006491c54ded
+VITE_FIREBASE_MEASUREMENT_ID=G-KQNSBX8SWN
+VITE_APP_URL=https://ocn.capital
+VITE_EMAILJS_SERVICE_ID=service_eif1bhg
+VITE_EMAILJS_TEMPLATE_ID=template_sqfuqff
+VITE_EMAILJS_PUBLIC_KEY=vKs9K8VogdhRRaLsf
+VITE_REAL_PAYMENTS_ENABLED=false
+VITE_PASSWORD_RESET_SERVER=false

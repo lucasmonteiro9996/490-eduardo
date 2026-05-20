@@ -12,6 +12,11 @@ const withdrawDestinations = {
   USD: ['Transferencia internacional (SWIFT)', 'Wire transfer', 'ACH', 'Saque em caixa 24h'],
 }
 
+const investProducts = {
+  BRL: ['CDB', 'Tesouro Direto', 'Fundos multimercado', 'Renda fixa'],
+  USD: ['Treasury bonds', 'Equity funds', 'Fixed income', 'Global portfolio'],
+}
+
 const methodDescriptions = {
   Cartao: 'Pagamento com cartao salvo e validacao do admin.',
   TED: 'Transferencia bancaria com dados do titular.',
@@ -39,7 +44,9 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
   const { t } = usePreferences()
   const [symbol, setSymbol] = useState('BRL')
   const [amount, setAmount] = useState('')
-  const [extra, setExtra] = useState(mode === 'deposit' ? depositSources.BRL[0] : withdrawDestinations.BRL[0])
+  const [extra, setExtra] = useState(
+    mode === 'invest' ? investProducts.BRL[0] : mode === 'deposit' ? depositSources.BRL[0] : withdrawDestinations.BRL[0],
+  )
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -55,7 +62,9 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
     setError('')
     setSubmitting(false)
     setSymbol('BRL')
-    setExtra(mode === 'deposit' ? depositSources.BRL[0] : withdrawDestinations.BRL[0])
+    setExtra(
+      mode === 'invest' ? investProducts.BRL[0] : mode === 'deposit' ? depositSources.BRL[0] : withdrawDestinations.BRL[0],
+    )
     setBankAccount(initialBankAccount ? { ...buildEmptyBankAccount(), ...initialBankAccount } : buildEmptyBankAccount())
     setSelectedCardId(savedCards[0]?.id || '')
 
@@ -64,15 +73,24 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
   }, [initialBankAccount, open, mode, savedCards])
 
   useEffect(() => {
-    const options = mode === 'deposit' ? depositSources[symbol] : withdrawDestinations[symbol]
+    const options = mode === 'invest'
+      ? investProducts[symbol]
+      : mode === 'deposit'
+        ? depositSources[symbol]
+        : withdrawDestinations[symbol]
     setExtra(options[0])
   }, [symbol, mode])
 
   const isDeposit = mode === 'deposit'
-  const title = isDeposit ? t('deposit') : t('withdraw')
-  const extraOptions = isDeposit ? depositSources[symbol] : withdrawDestinations[symbol]
-  const actionLabel = isDeposit ? t('modal_deposit_action') : t('modal_withdraw_action')
-  const extraLabel = isDeposit ? t('modal_origin') : t('modal_dest')
+  const isInvest = mode === 'invest'
+  const title = isInvest ? t('invest') : isDeposit ? t('deposit') : t('withdraw')
+  const extraOptions = isInvest
+    ? investProducts[symbol]
+    : isDeposit
+      ? depositSources[symbol]
+      : withdrawDestinations[symbol]
+  const actionLabel = isInvest ? t('modal_invest_action') : isDeposit ? t('modal_deposit_action') : t('modal_withdraw_action')
+  const extraLabel = isInvest ? t('modal_invest_product') : isDeposit ? t('modal_origin') : t('modal_dest')
   const currencySymbol = symbol === 'BRL' ? 'R$' : '$'
   const normalizedExtra = String(extra || '').toLowerCase()
   const needsTedBankFields = !isDeposit && symbol === 'BRL' && extra === 'TED'
@@ -130,10 +148,16 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
     setError('')
 
     try {
+      const routeValue = note ? `${extra} - ${note}` : extra
+
       await onConfirm({
         symbol,
         amount: parsed,
-        [isDeposit ? 'source' : 'destination']: note ? `${extra} - ${note}` : extra,
+        ...(isInvest
+          ? { source: extra, note }
+          : isDeposit
+            ? { source: routeValue }
+            : { destination: routeValue }),
         selectedCardId: needsSavedCard ? selectedCardId : null,
         payoutDetails: needsTedBankFields
           ? {
@@ -160,12 +184,21 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
 
   if (!open) return null
 
+  const activeCurrencyClass = isInvest ? styles.currencyBtnActiveInvest : styles.currencyBtnActive
+  const activeMethodClass = isInvest ? styles.methodCardActiveInvest : styles.methodCardActive
+  const primaryBtnClass = isInvest ? styles.btnInvest : isDeposit ? styles.btnDeposit : styles.btnWithdraw
+
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={`${styles.modal} corner-box`} onClick={(event) => event.stopPropagation()}>
+      <div
+        className={`${styles.modal} corner-box${isInvest ? ` ${styles.modalInvest}` : ''}`}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.head}>
           <div>
-            <span className={styles.kicker}>{isDeposit ? t('modal_deposit_kicker') : t('modal_withdraw_kicker')}</span>
+            <span className={styles.kicker}>
+              {isInvest ? t('modal_invest_kicker') : isDeposit ? t('modal_deposit_kicker') : t('modal_withdraw_kicker')}
+            </span>
             <h3 className={styles.title}>{title}</h3>
           </div>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t('close_label')}>
@@ -179,7 +212,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
               <button
                 key={code}
                 type="button"
-                className={`${styles.currencyBtn} ${symbol === code ? styles.currencyBtnActive : ''}`}
+                className={`${styles.currencyBtn} ${symbol === code ? activeCurrencyClass : ''}`}
                 onClick={() => setSymbol(code)}
               >
                 {code === 'BRL' ? t('currency_brl') : t('currency_usd')}
@@ -211,7 +244,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
                 <button
                   key={option}
                   type="button"
-                  className={`${styles.methodCard} ${extra === option ? styles.methodCardActive : ''}`}
+                  className={`${styles.methodCard} ${extra === option ? activeMethodClass : ''}`}
                   onClick={() => setExtra(option)}
                 >
                   <span className={styles.methodTitle}>{option}</span>
@@ -248,7 +281,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
               className={`${styles.input} corner-box`}
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder={isDeposit ? t('modal_note_deposit_ph') : t('modal_note_withdraw_ph')}
+              placeholder={isInvest ? t('modal_note_invest_ph') : isDeposit ? t('modal_note_deposit_ph') : t('modal_note_withdraw_ph')}
               maxLength={80}
             />
           </label>
@@ -342,7 +375,7 @@ export default function MoneyModal({ mode, open, onClose, onConfirm, initialBank
             <button type="button" className={styles.btnGhost} onClick={onClose} disabled={submitting}>
               {t('modal_cancel')}
             </button>
-            <button type="submit" className={`${styles.btnPrimary} ${isDeposit ? styles.btnDeposit : styles.btnWithdraw}`} disabled={submitting}>
+            <button type="submit" className={`${styles.btnPrimary} ${primaryBtnClass}`} disabled={submitting}>
               {submitting ? 'Processando...' : actionLabel}
             </button>
           </div>

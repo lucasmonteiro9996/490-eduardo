@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './CreditCard.module.css'
 
 const chipImage =
@@ -18,9 +19,41 @@ function formatValid(valid = '') {
   return `${mm.split('').join(' ')} / ${yy.split('').join(' ')}`
 }
 
-export default function CreditCard({ brand = 'MASTERCARD', holder = 'BRUCE WAYNE', number = '9759 2484 5269 6576', valid = '12/24', cvv = '***' }) {
+export default function CreditCard({
+  brand = 'MASTERCARD',
+  holder = 'BRUCE WAYNE',
+  number = '9759 2484 5269 6576',
+  valid = '12/24',
+  cvv = '***',
+  masked = false,
+  showFlipHint = true,
+}) {
+  const [flipped, setFlipped] = useState(false)
+  const displayNumber = masked ? number : formatNumber(number)
+  const displayValid = masked ? valid : formatValid(valid)
+  const displayCvv = String(cvv || '').trim() || '---'
+  const canFlip = !masked
+
+  function toggleFlip() {
+    if (!canFlip) return
+    setFlipped((current) => !current)
+  }
+
   return (
-    <div className={styles.flipCard}>
+    <div className={styles.cardWrap}>
+      <div
+        className={`${styles.flipCard} ${masked ? styles.flipCardLocked : ''} ${flipped ? styles.flipCardFlipped : ''}`}
+        onClick={toggleFlip}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            toggleFlip()
+          }
+        }}
+        role={canFlip ? 'button' : undefined}
+        tabIndex={canFlip ? 0 : undefined}
+        aria-label={canFlip ? 'Virar cartão para ver o CVV' : undefined}
+      >
       <div className={styles.flipCardInner}>
         <div className={styles.flipCardFront}>
           <p className={styles.heading}>{brand.toUpperCase()}</p>
@@ -35,19 +68,23 @@ export default function CreditCard({ brand = 'MASTERCARD', holder = 'BRUCE WAYNE
           <svg className={styles.contactless} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 50 50">
             <image width="50" height="50" href={contactlessImage} />
           </svg>
-          <p className={styles.number}>{formatNumber(number)}</p>
+          <p className={styles.number}>{displayNumber}</p>
           <p className={styles.validThru}>VALID THRU</p>
-          <p className={styles.date}>{formatValid(valid)}</p>
+          <p className={styles.date}>{displayValid}</p>
           <p className={styles.name}>{holder}</p>
         </div>
         <div className={styles.flipCardBack}>
           <div className={styles.strip} />
           <div className={styles.mstrip} />
           <div className={styles.sstrip}>
-            <p className={styles.code}>{cvv}</p>
+            <p className={styles.code}>{displayCvv}</p>
           </div>
         </div>
       </div>
+      </div>
+      {showFlipHint && canFlip ? (
+        <p className={styles.flipHint}>{flipped ? 'Clique para ver a frente' : 'Clique para ver o CVV'}</p>
+      ) : null}
     </div>
   )
 }

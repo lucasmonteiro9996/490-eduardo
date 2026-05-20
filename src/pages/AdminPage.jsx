@@ -623,10 +623,14 @@ export default function AdminPage() {
     to: ADMIN_NOTIFICATION_EMAIL,
     subject: req.type === 'deposit'
       ? `Solicitação de depósito — ${req.formattedAmount}`
-      : `Solicitação de saque — ${req.formattedAmount}`,
+      : req.type === 'invest'
+        ? `Solicitação de investimento — ${req.formattedAmount}`
+        : `Solicitação de saque — ${req.formattedAmount}`,
     body: req.type === 'deposit'
       ? `O cliente <strong>${req.userEmail}</strong> solicita um depósito de <strong>${req.formattedAmount}</strong> via <em>${req.source || 'TED'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`
-      : `O cliente <strong>${req.userEmail}</strong> solicita um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`,
+      : req.type === 'invest'
+        ? `O cliente <strong>${req.userEmail}</strong> solicita investir <strong>${req.formattedAmount}</strong> em <em>${req.source || 'aplicação'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`
+        : `O cliente <strong>${req.userEmail}</strong> solicita um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.<br/><br/>Avalie e aprove ou recuse a operação.`,
     type: req.type,
     symbol: req.symbol,
     formattedAmount: req.formattedAmount,
@@ -646,10 +650,14 @@ export default function AdminPage() {
     to: ADMIN_NOTIFICATION_EMAIL,
     subject: req.type === 'deposit'
       ? `Solicitação de depósito — ${req.formattedAmount}`
-      : `Solicitação de saque — ${req.formattedAmount}`,
+      : req.type === 'invest'
+        ? `Solicitação de investimento — ${req.formattedAmount}`
+        : `Solicitação de saque — ${req.formattedAmount}`,
     body: req.type === 'deposit'
       ? `O cliente <strong>${req.userEmail}</strong> solicitou um depósito de <strong>${req.formattedAmount}</strong> via <em>${req.source || 'TED'}</em>.`
-      : `O cliente <strong>${req.userEmail}</strong> solicitou um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.`,
+      : req.type === 'invest'
+        ? `O cliente <strong>${req.userEmail}</strong> solicitou investir <strong>${req.formattedAmount}</strong> em <em>${req.source || 'aplicação'}</em>.`
+        : `O cliente <strong>${req.userEmail}</strong> solicitou um saque de <strong>${req.formattedAmount}</strong> via <em>${req.destination || 'TED'}</em>.`,
     type: req.type,
     symbol: req.symbol,
     formattedAmount: req.formattedAmount,

@@ -4,7 +4,7 @@ import { jsonError } from './_asaas.mjs'
 
 const ADMIN_EMAIL = 'siteocn@gmail.com'
 
-function getFirebaseAuth() {
+export function getFirebaseAuth() {
   if (getApps().length === 0) {
     const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim()
     if (!raw) {

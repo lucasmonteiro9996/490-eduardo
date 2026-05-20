@@ -5,3 +5,12 @@ dist/
 .tmp-logo/
 hostinger-dist.zip
 vite.config.js.timestamp-*.mjs
+
+# Local Netlify folder
+.netlify
+
+# Firebase local cache
+.firebase/
+
+# Logs locais
+.codex-vite-*.log

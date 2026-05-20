@@ -7,8 +7,8 @@ import MoneyModal from '../components/MoneyModal.jsx'
 import CreditCard from '../components/CreditCard.jsx'
 import { useToast } from '../components/Toast.jsx'
 import SafeHtml from '../components/SafeHtml.jsx'
-import { ADMIN_NOTIFICATION_EMAIL } from '../lib/emailService.js'
 import { openStatementPdf, openTransactionPdf } from '../lib/pdfExport.js'
+import { reconcileWalletBalances } from '../lib/currencyConversion.js'
 import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './Dashboard.module.css'
 
@@ -16,6 +16,28 @@ const txIcon = {
   receive: { color: 'var(--green)', bg: 'rgba(62,207,142,0.12)', symbol: '↓' },
   send: { color: 'var(--red)', bg: 'rgba(224,92,126,0.12)', symbol: '↑' },
   exchange: { color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', symbol: '⇌' },
+}
+
+function useBrlToUsdRate() {
+  const [brlToUsd, setBrlToUsd] = useState(getCachedBrlToUsd)
+
+  useEffect(() => {
+    let active = true
+    fetchBrlToUsd().then((rate) => {
+      if (active) setBrlToUsd(rate)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return brlToUsd
+}
+
+function defaultDisplayWallet(symbol) {
+  return symbol === 'USD'
+    ? { id: 'usd', symbol: 'USD', name: 'Dólar americano', native: 0, color: '#4a7fdb', change: '+0,0%', up: true }
+    : { id: 'brl', symbol: 'BRL', name: 'Real brasileiro', native: 0, color: '#3ecf8e', change: '+0,0%', up: true }
 }
 
 function formatSourceMessage(status) {
@@ -79,17 +101,13 @@ function TransactionsSummary({ transactions }) {
   )
 }
 
-function WalletsSummary({ wallets, exchangeRates }) {
+function WalletsSummary({ wallets }) {
   const { t, preferredCurrency } = usePreferences()
-  const brlWallet = wallets.find((w) => w.symbol === 'BRL')
-  const usdWallet = wallets.find((w) => w.symbol === 'USD')
-  const usdBrl = exchangeRates.find((r) => r.pair === 'USD/BRL')
-
-  const rateNum = parseFloat(
-    String(usdBrl?.value || '').replace('R$', '').replace(/\./g, '').replace(',', '.').trim()
-  ) || 5.08
-
-  const totalBrl = (brlWallet?.native || 0) + (usdWallet?.native || 0) * rateNum
+  const brlToUsd = useBrlToUsdRate()
+  const syncedWallets = useMemo(() => reconcileWalletBalances(wallets, brlToUsd), [wallets, brlToUsd])
+  const brlWallet = syncedWallets.find((w) => w.symbol === 'BRL')
+  const usdWallet = syncedWallets.find((w) => w.symbol === 'USD')
+  const totalBrl = brlWallet?.native || 0
 
   const brlStat = (
     <div className={styles.pageSummaryStat}>
@@ -103,7 +121,7 @@ function WalletsSummary({ wallets, exchangeRates }) {
     <div className={styles.pageSummaryStat}>
       <span className={styles.pageSummaryValue} style={{ color: '#4a7fdb' }}>{formatCurrency(usdWallet?.native || 0, 'USD')}</span>
       <span className={styles.pageSummaryLabel}>{t('balance_usd')}</span>
-      <span className={styles.pageSummaryHint}>{usdWallet?.change || '+0,0%'}</span>
+      <span className={styles.pageSummaryHint}>{t('account_usd')}</span>
     </div>
   )
 
@@ -116,11 +134,6 @@ function WalletsSummary({ wallets, exchangeRates }) {
       </div>
       {preferredCurrency === 'USD' ? usdStat : brlStat}
       {preferredCurrency === 'USD' ? brlStat : usdStat}
-      <div className={styles.pageSummaryStat}>
-        <span className={styles.pageSummaryValue}>{usdBrl?.value || 'R$ 5,08'}</span>
-        <span className={styles.pageSummaryLabel}>{t('rate')}</span>
-        <span className={styles.pageSummaryHint}>{usdBrl?.change || '+0,0%'}</span>
-      </div>
     </div>
   )
 }
@@ -238,22 +251,31 @@ function UserRequestStatus({ requests }) {
   )
 }
 
-function DashboardSummary({ wallets, exchangeRates, transactions }) {
+function DashboardSummary({ wallets, investments = [] }) {
   const { t, preferredCurrency } = usePreferences()
-  const [brlToUsd, setBrlToUsd] = useState(getCachedBrlToUsd)
-  const brlWallet = wallets.find((wallet) => wallet.symbol === 'BRL')
-  const usdWalletDirect = wallets.find((wallet) => wallet.symbol === 'USD')
+  const brlToUsd = useBrlToUsdRate()
+  const syncedWallets = useMemo(() => reconcileWalletBalances(wallets, brlToUsd), [wallets, brlToUsd])
+  const brlWallet = syncedWallets.find((wallet) => wallet.symbol === 'BRL')
+  const usdWallet = syncedWallets.find((wallet) => wallet.symbol === 'USD')
 
-  useEffect(() => { fetchBrlToUsd().then(setBrlToUsd) }, [])
-  const usdBrl = exchangeRates.find((rate) => rate.pair === 'USD/BRL') ?? exchangeRates[0]
-  const positiveTransactions = transactions.filter((item) => item.amount?.startsWith('+')).length
-  const stableLabel = positiveTransactions > 1 ? t('flow_positive') : t('flow_stable')
+  const usdNative = Number(usdWallet?.native) || 0
+  const usdHint = t('account_usd')
 
-  // Se não houver carteira USD, converte o saldo BRL para mostrar o equivalente
-  const usdNative = usdWalletDirect != null
-    ? usdWalletDirect.native
-    : (brlWallet?.native || 0) * brlToUsd
-  const usdHint = usdWalletDirect != null ? t('account_usd') : `≈ convertido de BRL`
+  const { activeTotal, pendingCount } = useMemo(() => {
+    const active = investments.filter((item) => item.status === 'active')
+    const pending = investments.filter((item) => item.status === 'pending')
+    const toUsd = (item) => (item.symbol === 'USD' ? item.amount : item.amount * brlToUsd)
+    const activeUsd = active.reduce((sum, item) => sum + toUsd(item), 0)
+
+    return {
+      activeTotal: preferredCurrency === 'BRL' ? activeUsd / brlToUsd : activeUsd,
+      pendingCount: pending.length,
+    }
+  }, [brlToUsd, investments, preferredCurrency])
+
+  const investedHint = pendingCount > 0
+    ? `${t('invested_hint')} · ${pendingCount} ${t('invested_pending')}`
+    : t('invested_hint')
 
   const brlCard = (
     <div className={`${styles.dashboardStatCard} ${styles.statAccentGreen} corner-box ${preferredCurrency === 'BRL' ? styles.statPrimary : ''}`}>
@@ -271,20 +293,24 @@ function DashboardSummary({ wallets, exchangeRates, transactions }) {
     </div>
   )
 
+  const investedCard = (
+    <div className={`${styles.dashboardStatCard} ${styles.statAccentPurple} corner-box`}>
+      <span className={styles.dashboardStatLabel}>{t('invested_label')}</span>
+      <div className={styles.dashboardStatValue}>{formatCurrency(activeTotal, preferredCurrency)}</div>
+      <span className={styles.dashboardStatHint}>{investedHint}</span>
+    </div>
+  )
+
   return (
-    <div className={styles.dashboardStats}>
+    <div className={`${styles.dashboardStats} ${styles.dashboardStatsTriple}`}>
       {preferredCurrency === 'USD' ? usdCard : brlCard}
       {preferredCurrency === 'USD' ? brlCard : usdCard}
-      <div className={`${styles.dashboardStatCard} ${styles.statAccentBlue} corner-box`}>
-        <span className={styles.dashboardStatLabel}>{t('rate_label')}</span>
-        <div className={styles.dashboardStatValue}>{usdBrl?.value || 'R$ 5,08'}</div>
-        <span className={styles.dashboardStatHint}>{usdBrl?.change || '+0,32%'} {stableLabel}</span>
-      </div>
+      {investedCard}
     </div>
   )
 }
 
-function DashboardActions({ onDeposit, onWithdraw, onStatement }) {
+function DashboardActions({ onDeposit, onWithdraw, onInvest, onStatement }) {
   const { t } = usePreferences()
   return (
     <div className={styles.dashboardActions}>
@@ -294,6 +320,9 @@ function DashboardActions({ onDeposit, onWithdraw, onStatement }) {
       <button className={`${styles.dashboardActionBtn} ${styles.actionOrange}`} type="button" onClick={onWithdraw}>
         <span className={styles.actionText}>{t('withdraw')}</span>
       </button>
+      <button className={`${styles.dashboardActionBtn} ${styles.actionPurple}`} type="button" onClick={onInvest}>
+        <span className={styles.actionText}>{t('invest')}</span>
+      </button>
       <button className={`${styles.dashboardActionBtn} ${styles.actionBlue}`} type="button" onClick={onStatement}>
         <span className={styles.actionText}>{t('statement')}</span>
       </button>
@@ -302,31 +331,35 @@ function DashboardActions({ onDeposit, onWithdraw, onStatement }) {
 }
 
 function WalletList({ wallets }) {
-  const { preferredCurrency } = usePreferences()
-  const sorted = [...wallets].sort((a, b) => {
-    if (a.symbol === preferredCurrency) return -1
-    if (b.symbol === preferredCurrency) return 1
-    return 0
-  })
+  const { t } = usePreferences()
+  const brlToUsd = useBrlToUsdRate()
+  const syncedWallets = useMemo(() => reconcileWalletBalances(wallets, brlToUsd), [wallets, brlToUsd])
+  const brlWallet = syncedWallets.find((wallet) => wallet.symbol === 'BRL') ?? defaultDisplayWallet('BRL')
+  const usdWallet = syncedWallets.find((wallet) => wallet.symbol === 'USD') ?? defaultDisplayWallet('USD')
 
   return (
     <div className={styles.walletList}>
-      {sorted.map((wallet) => (
-        <div key={wallet.id} className={`${styles.walletItem} corner-box`}>
-          <div className={styles.walletSymbolWrap}>
-            <span className={styles.walletSymbol} style={{ background: `${wallet.color}20`, color: wallet.color }}>
-              {wallet.symbol}
-            </span>
+      <div className={`${styles.walletItem} ${styles.walletUnified} corner-box`}>
+        <div className={styles.walletSymbolWrap}>
+          <span className={styles.walletSymbol} style={{ background: 'rgba(76,134,255,0.18)', color: '#8db4ff' }}>
+            OC
+          </span>
+        </div>
+        <div className={styles.walletInfo}>
+          <span className={styles.walletName}>{t('account_unified')}</span>
+          <span className={styles.walletAmount}>{t('account_unified_hint')}</span>
+        </div>
+        <div className={styles.walletBalances}>
+          <div className={styles.walletBalancePill}>
+            <span>BRL</span>
+            <strong>{formatCurrency(brlWallet.native || 0, 'BRL')}</strong>
           </div>
-          <div className={styles.walletInfo}>
-            <span className={styles.walletName}>{wallet.name}</span>
-            <span className={styles.walletAmount}>{formatCurrency(wallet.native || 0, wallet.symbol)}</span>
-          </div>
-          <div className={styles.walletRight}>
-            <span className={`${styles.walletChange} ${wallet.up ? styles.up : styles.down}`}>{wallet.change}</span>
+          <div className={styles.walletBalancePill}>
+            <span>USD</span>
+            <strong>{formatCurrency(usdWallet.native || 0, 'USD')}</strong>
           </div>
         </div>
-      ))}
+      </div>
     </div>
   )
 }
@@ -454,7 +487,13 @@ function CardsGallery({ cards }) {
           <div className={styles.cardActions}>
             <span className={styles.cardMetaLabel}>Emitido pelo admin</span>
           </div>
-          <CreditCard brand={card.brand} holder={card.holder} number={card.number} valid={card.valid} cvv={card.cvv} />
+          <CreditCard
+            brand={card.brand}
+            holder={card.holder}
+            number={card.number}
+            valid={card.valid}
+            cvv={card.cvv}
+          />
           <div className={styles.cardMeta}>
             <div>
               <span className={styles.cardMetaLabel}>{t('meta_currency')}</span>
@@ -467,6 +506,10 @@ function CardsGallery({ cards }) {
             <div>
               <span className={styles.cardMetaLabel}>{t('meta_status')}</span>
               <span className={`${styles.cardMetaValue} ${styles.cardStatusOk}`}>{card.status}</span>
+            </div>
+            <div>
+              <span className={styles.cardMetaLabel}>{t('field_cvv')}</span>
+              <span className={styles.cardMetaValue}>{card.cvv || '—'}</span>
             </div>
           </div>
         </div>
@@ -579,9 +622,9 @@ function AddCardPanel({ defaultHolder, defaultEmail, userUid, onAddCard }) {
       id: `local-card-${Date.now()}`,
       brand: detectCardBrand(digits),
       holder,
-      number: `**** **** **** ${digits.slice(-4)}`,
+      number,
       valid,
-      cvv: '***',
+      cvv,
       currency: form.currency,
       limit: form.currency === 'BRL' ? `R$ ${limitValue}` : `$ ${limitValue}`,
       status: 'Ativo',
@@ -977,16 +1020,21 @@ export default function WorkspacePage({ pageKey }) {
       await workspace.submitRequest({ type: 'deposit', ...payload })
       toast.push({
         type: 'info',
-        title: 'Solicitação enviada ao administrador',
-        message: `O pedido entrou na inbox do admin e a tentativa de email foi direcionada para ${ADMIN_NOTIFICATION_EMAIL}.`,
+        title: 'Solicitação enviada pro administrador',
         duration: 6000,
       })
     } else if (modal === 'withdraw') {
       await workspace.submitRequest({ type: 'withdraw', ...payload })
       toast.push({
         type: 'info',
-        title: 'Solicitação enviada ao administrador',
-        message: `O pedido entrou na inbox do admin e a tentativa de email foi direcionada para ${ADMIN_NOTIFICATION_EMAIL}.`,
+        title: 'Solicitação enviada pro administrador',
+        duration: 6000,
+      })
+    } else if (modal === 'invest') {
+      await workspace.submitInvestment(payload)
+      toast.push({
+        type: 'info',
+        title: 'Solicitação enviada pro administrador',
         duration: 6000,
       })
     }
@@ -1028,12 +1076,12 @@ export default function WorkspacePage({ pageKey }) {
           <>
             <DashboardSummary
               wallets={workspace.wallets.data}
-              exchangeRates={workspace.exchangeRates.data}
-              transactions={workspace.transactions.data}
+              investments={workspace.investments?.data || []}
             />
             <DashboardActions
               onDeposit={() => setModal('deposit')}
               onWithdraw={() => setModal('withdraw')}
+              onInvest={() => setModal('invest')}
               onStatement={handleStatement}
             />
             <UserRequestStatus requests={workspace.userRequests} />
@@ -1063,7 +1111,6 @@ export default function WorkspacePage({ pageKey }) {
           <>
             <WalletsSummary
               wallets={workspace.wallets.data}
-              exchangeRates={workspace.exchangeRates.data}
             />
             <SectionCard title={t('section_wallets')}>
               <WalletList wallets={workspace.wallets.data} />
@@ -1109,8 +1156,8 @@ export default function WorkspacePage({ pageKey }) {
       </div>
 
       <MoneyModal
-        mode={modal === 'withdraw' ? 'withdraw' : 'deposit'}
-        open={modal === 'deposit' || modal === 'withdraw'}
+        mode={modal === 'withdraw' ? 'withdraw' : modal === 'invest' ? 'invest' : 'deposit'}
+        open={modal === 'deposit' || modal === 'withdraw' || modal === 'invest'}
         onClose={() => setModal(null)}
         onConfirm={handleConfirm}
         initialBankAccount={workspace.bankAccounts.data?.[0] || null}

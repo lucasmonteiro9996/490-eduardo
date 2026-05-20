@@ -1,3 +1,10 @@
+.cardWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 .flipCard {
   background-color: transparent;
   width: 260px;
@@ -6,6 +13,15 @@
   color: white;
   filter: drop-shadow(0 26px 40px rgba(0, 0, 0, 0.36));
   transform: translateZ(0);
+  cursor: pointer;
+}
+
+.flipHint {
+  margin: 0;
+  font-size: 0.68rem;
+  color: rgba(232, 225, 219, 0.55);
+  letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .flipCardInner {
@@ -17,9 +33,20 @@
   transform-style: preserve-3d;
 }
 
-.flipCard:hover .flipCardInner {
+.flipCard:hover .flipCardInner,
+.flipCardFlipped .flipCardInner {
   transform: rotateY(180deg) translateY(-4px);
   filter: saturate(1.08);
+}
+
+.flipCardLocked,
+.flipCardLocked:hover .flipCardInner {
+  transform: none;
+  filter: none;
+}
+
+.flipCardLocked {
+  cursor: default;
 }
 
 .flipCardFront,

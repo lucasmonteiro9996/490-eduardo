@@ -17,15 +17,24 @@ export const TRANSLATIONS = {
     balance_brl: 'Saldo em real',
     balance_usd: 'Saldo em dólar',
     rate_label: 'Cotação USD/BRL',
-    account_brl: 'Conta BRL',
-    account_usd: 'Conta USD',
+    account_brl: 'Saldo BRL',
+    account_usd: 'Saldo USD',
     flow_positive: 'Fluxo positivo',
     flow_stable: 'Movimento estável',
 
     // DashboardActions buttons
     deposit: 'Depositar',
     withdraw: 'Sacar',
+    invest: 'Investir',
     statement: 'Extrato',
+    invested_label: 'Investidos',
+    invested_hint: 'Total em aplicações',
+    invested_empty: 'Nenhuma aplicação ativa ainda',
+    invested_pending: 'pendente(s)',
+    modal_invest_kicker: 'Nova aplicação',
+    modal_invest_action: 'Confirmar investimento',
+    modal_invest_product: 'Produto',
+    modal_note_invest_ph: 'Ex.: reserva de emergência',
 
     // DashboardTransactions
     recent_tx: 'Transações recentes',
@@ -99,7 +108,9 @@ export const TRANSLATIONS = {
 
     // Section titles
     section_history: 'Histórico de movimentações',
-    section_wallets: 'Suas contas em real e dólar',
+    section_wallets: 'Sua conta em real e dólar',
+    account_unified: 'Conta Ocean Capital',
+    account_unified_hint: 'Uma conta com saldo em real e dólar',
     section_add_card: 'Adicionar cartão',
     section_cards: 'Seus cartões',
     section_preferences: 'Preferências',
@@ -184,15 +195,24 @@ export const TRANSLATIONS = {
     balance_brl: 'BRL balance',
     balance_usd: 'USD balance',
     rate_label: 'USD/BRL rate',
-    account_brl: 'BRL account',
-    account_usd: 'USD account',
+    account_brl: 'BRL balance',
+    account_usd: 'USD balance',
     flow_positive: 'Positive flow',
     flow_stable: 'Stable movement',
 
     // DashboardActions buttons
     deposit: 'Deposit',
     withdraw: 'Withdraw',
+    invest: 'Invest',
     statement: 'Statement',
+    invested_label: 'Invested',
+    invested_hint: 'Total in investments',
+    invested_empty: 'No active investments yet',
+    invested_pending: 'pending',
+    modal_invest_kicker: 'New investment',
+    modal_invest_action: 'Confirm investment',
+    modal_invest_product: 'Product',
+    modal_note_invest_ph: 'E.g.: emergency reserve',
 
     // DashboardTransactions
     recent_tx: 'Recent transactions',
@@ -266,7 +286,9 @@ export const TRANSLATIONS = {
 
     // Section titles
     section_history: 'Transaction history',
-    section_wallets: 'Your BRL and USD accounts',
+    section_wallets: 'Your BRL and USD account',
+    account_unified: 'Ocean Capital account',
+    account_unified_hint: 'One account with BRL and USD balances',
     section_add_card: 'Add card',
     section_cards: 'Your cards',
     section_preferences: 'Preferences',
@@ -351,15 +373,24 @@ export const TRANSLATIONS = {
     balance_brl: 'Saldo en BRL',
     balance_usd: 'Saldo en USD',
     rate_label: 'Cotización USD/BRL',
-    account_brl: 'Cuenta BRL',
-    account_usd: 'Cuenta USD',
+    account_brl: 'Saldo BRL',
+    account_usd: 'Saldo USD',
     flow_positive: 'Flujo positivo',
     flow_stable: 'Movimiento estable',
 
     // DashboardActions buttons
     deposit: 'Depositar',
     withdraw: 'Retirar',
+    invest: 'Invertir',
     statement: 'Extracto',
+    invested_label: 'Invertidos',
+    invested_hint: 'Total en inversiones',
+    invested_empty: 'Sin inversiones activas aún',
+    invested_pending: 'pendiente(s)',
+    modal_invest_kicker: 'Nueva inversión',
+    modal_invest_action: 'Confirmar inversión',
+    modal_invest_product: 'Producto',
+    modal_note_invest_ph: 'Ej.: reserva de emergencia',
 
     // DashboardTransactions
     recent_tx: 'Transacciones recientes',
@@ -433,7 +464,9 @@ export const TRANSLATIONS = {
 
     // Section titles
     section_history: 'Historial de movimientos',
-    section_wallets: 'Tus cuentas en BRL y USD',
+    section_wallets: 'Tu cuenta en BRL y USD',
+    account_unified: 'Cuenta Ocean Capital',
+    account_unified_hint: 'Una cuenta con saldo en BRL y USD',
     section_add_card: 'Agregar tarjeta',
     section_cards: 'Tus tarjetas',
     section_preferences: 'Preferencias',
