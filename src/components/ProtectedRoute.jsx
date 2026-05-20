@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import AccountStatusGate from './AccountStatusGate.jsx'
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading, hasFirebaseConfig, demoMode } = useAuth()
+  const { user, loading, hasFirebaseConfig, demoMode, accountProfile, profileLoading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -18,7 +18,8 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/" replace state={{ from: location }} />
   }
 
-  if (!user.emailVerified) {
+  const accountApproved = accountProfile?.status === 'active'
+  if (!profileLoading && !user.emailVerified && !accountApproved) {
     return <Navigate to="/" replace />
   }
 

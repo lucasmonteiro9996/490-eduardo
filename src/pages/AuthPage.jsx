@@ -24,7 +24,30 @@ export default function AuthPage() {
   const [registeredEmail, setRegisteredEmail] = useState('')
   const [resendPending, setResendPending] = useState(false)
   const navigate = useNavigate()
-  const { user, login, register, resetPassword, resendVerification, logout, hasFirebaseConfig, demoMode } = useAuth()
+  const {
+    user,
+    login,
+    register,
+    resetPassword,
+    resendVerification,
+    logout,
+    hasFirebaseConfig,
+    demoMode,
+    accountProfile,
+    profileLoading,
+  } = useAuth()
+
+  function isAdminEmail(email) {
+    return String(email || '').toLowerCase() === 'siteocn@gmail.com'
+  }
+
+  function canEnterApp(currentUser, profile) {
+    if (!currentUser) return false
+    if (isAdminEmail(currentUser.email)) return true
+    if (currentUser.emailVerified) return true
+    if (profile?.status === 'active') return true
+    return false
+  }
 
   function switchTab(next) {
     setTab(next)
@@ -96,7 +119,7 @@ export default function AuthPage() {
       if (hasFirebaseConfig) {
         if (tab === 'login') {
           const loggedInUser = await login(email, password)
-          const isAdminLogin = String(loggedInUser?.email || '').toLowerCase() === 'siteocn@gmail.com'
+          const isAdminLogin = isAdminEmail(loggedInUser?.email)
           setAuthenticating(true)
           await new Promise((resolve) => setTimeout(resolve, 850))
           navigate(isAdminLogin ? '/admin' : '/dashboard', { replace: true })
@@ -121,12 +144,9 @@ export default function AuthPage() {
     }
   }
 
-  if (user) {
-    const isAdmin = String(user.email || '').toLowerCase() === 'siteocn@gmail.com'
-    if (isAdmin || user.emailVerified) {
-      return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
-    }
-    // unverified: fall through to show verification screen
+  if (user && !profileLoading && canEnterApp(user, accountProfile)) {
+    const isAdmin = isAdminEmail(user.email)
+    return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
   }
 
   return (
@@ -185,7 +205,7 @@ export default function AuthPage() {
         <form className={styles.form} onSubmit={handleSubmit} autoComplete="off">
 
           {/* ── Email verification pending ─────────────────────────────── */}
-          {verificationSent || (user && !user.emailVerified) ? (
+          {verificationSent || (user && !canEnterApp(user, accountProfile)) ? (
             <>
               <div className={styles.forgotSuccess}>
                 <div className={styles.forgotSuccessIcon}>
