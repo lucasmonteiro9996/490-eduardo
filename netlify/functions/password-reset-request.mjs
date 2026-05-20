@@ -43,7 +43,7 @@ export async function handler(event) {
     try {
       await auth.getUserByEmail(email)
     } catch {
-      return jsonOk({ ok: true, provider: 'noop' })
+      return jsonOk({ ok: true, provider: 'client-fallback', reason: 'user-not-found' })
     }
 
     resetLink = await auth.generatePasswordResetLink(email, {

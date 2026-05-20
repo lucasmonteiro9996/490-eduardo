@@ -14,3 +14,6 @@ VITE_EMAILJS_TEMPLATE_ID=template_sqfuqff
 VITE_EMAILJS_PUBLIC_KEY=vKs9K8VogdhRRaLsf
 VITE_REAL_PAYMENTS_ENABLED=false
 VITE_PASSWORD_RESET_SERVER=false
+# Opcional no Netlify (servidor) — template EmailJS só para reset de senha:
+# PASSWORD_RESET_EMAILJS_TEMPLATE_ID=
+# FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}

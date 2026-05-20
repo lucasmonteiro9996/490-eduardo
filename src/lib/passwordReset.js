@@ -4,7 +4,6 @@ import { getAppUrl } from './appUrl.js'
 import { mapFirebaseAuthError } from './authErrors.js'
 
 const FUNCTIONS_BASE_URL = String(import.meta.env.VITE_FUNCTIONS_BASE_URL || '').trim().replace(/\/$/, '')
-const USE_SERVER_RESET = String(import.meta.env.VITE_PASSWORD_RESET_SERVER || '').toLowerCase() === 'true'
 
 function resolveFunctionUrl(path) {
   if (!FUNCTIONS_BASE_URL) {
@@ -18,17 +17,8 @@ function resolveFunctionUrl(path) {
   return `${FUNCTIONS_BASE_URL}/${path}`
 }
 
-function shouldTryServerReset() {
-  if (USE_SERVER_RESET) return true
-  if (FUNCTIONS_BASE_URL) return true
-  return import.meta.env.DEV
-}
-
+/** Netlify: tenta enviar link via EmailJS no servidor (precisa FIREBASE_SERVICE_ACCOUNT_JSON + template). */
 async function tryServerPasswordReset(email) {
-  if (!shouldTryServerReset()) {
-    return false
-  }
-
   try {
     const response = await fetch(resolveFunctionUrl('password-reset-request'), {
       method: 'POST',
@@ -46,7 +36,7 @@ async function tryServerPasswordReset(email) {
       return false
     }
 
-    return data.provider === 'emailjs' || data.provider === 'noop'
+    return data.provider === 'emailjs'
   } catch {
     return false
   }
@@ -60,26 +50,32 @@ async function requestPasswordResetViaFirebase(email) {
   auth.languageCode = 'pt-BR'
 
   const continueUrl = getAppUrl()
-  const actionCodeSettings = continueUrl
-    ? { url: continueUrl, handleCodeInApp: false }
-    : undefined
+
+  // Primeiro sem URL customizada — evita auth/invalid-continue-uri e o e-mail costuma sair.
+  try {
+    await sendPasswordResetEmail(auth, email)
+    return
+  } catch (plainError) {
+    const plainCode = String(plainError?.code || '')
+    if (plainCode === 'auth/user-not-found' || plainCode === 'auth/invalid-email') {
+      throw new Error(mapFirebaseAuthError(plainError))
+    }
+  }
+
+  if (!continueUrl) {
+    throw new Error('Não foi possível enviar o e-mail de redefinição. Tente novamente em instantes.')
+  }
 
   try {
-    await sendPasswordResetEmail(auth, email, actionCodeSettings)
+    await sendPasswordResetEmail(auth, email, {
+      url: continueUrl,
+      handleCodeInApp: false,
+    })
   } catch (error) {
     const code = String(error?.code || '')
-    const canRetryWithoutContinueUrl = actionCodeSettings
-      && (code === 'auth/invalid-continue-uri' || code === 'auth/unauthorized-continue-uri')
-
-    if (canRetryWithoutContinueUrl) {
-      try {
-        await sendPasswordResetEmail(auth, email)
-        return
-      } catch (retryError) {
-        throw new Error(mapFirebaseAuthError(retryError))
-      }
+    if (code === 'auth/invalid-continue-uri' || code === 'auth/unauthorized-continue-uri') {
+      throw new Error(mapFirebaseAuthError(error))
     }
-
     throw new Error(mapFirebaseAuthError(error))
   }
 }
@@ -90,10 +86,14 @@ export async function requestPasswordReset(email) {
     throw new Error('Informe seu e-mail.')
   }
 
-  const handledByServer = await tryServerPasswordReset(normalized)
-  if (handledByServer) {
+  try {
+    await requestPasswordResetViaFirebase(normalized)
     return
+  } catch (firebaseError) {
+    const sentByServer = await tryServerPasswordReset(normalized)
+    if (sentByServer) {
+      return
+    }
+    throw firebaseError
   }
-
-  await requestPasswordResetViaFirebase(normalized)
 }
