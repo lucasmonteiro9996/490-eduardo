@@ -139,10 +139,72 @@ export function getClientTotalUSD(client, brlToUsd = 1 / 5.75) {
   return Math.max(usd, brl * rate)
 }
 
+const COMPACT_AMOUNT_THRESHOLD = 1_000_000
+
 export function formatNative(native, symbol) {
   const abs = Math.abs(native)
   if (symbol === 'BRL') {
     return `R$ ${abs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `$ ${abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+export function formatCompactUSD(value) {
+  const amount = Number(value) || 0
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: Math.abs(amount) >= 1e9 ? 2 : 1,
+  }).format(amount)
+}
+
+export function formatCompactNative(native, symbol) {
+  const amount = Number(native) || 0
+  const locale = symbol === 'BRL' ? 'pt-BR' : 'en-US'
+  const currency = symbol === 'BRL' ? 'BRL' : 'USD'
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: Math.abs(amount) >= 1e9 ? 2 : 1,
+  }).format(amount)
+}
+
+export function formatUSDDisplay(value) {
+  const amount = Number(value) || 0
+  if (Math.abs(amount) >= COMPACT_AMOUNT_THRESHOLD) return formatCompactUSD(amount)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
+export function formatNativeDisplay(native, symbol) {
+  const amount = Number(native) || 0
+  if (Math.abs(amount) >= COMPACT_AMOUNT_THRESHOLD) return formatCompactNative(amount, symbol)
+  return formatNative(native, symbol)
+}
+
+export function formatUSDFull(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0)
+}
+
+export function formatNativeFull(native, symbol) {
+  const amount = Number(native) || 0
+  const locale = symbol === 'BRL' ? 'pt-BR' : 'en-US'
+  const currency = symbol === 'BRL' ? 'BRL' : 'USD'
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
 }

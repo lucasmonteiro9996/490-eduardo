@@ -3,7 +3,7 @@ import { usePreferences } from '../context/PreferencesContext.jsx'
 import styles from './MoneyModal.module.css'
 
 const depositSources = {
-  BRL: ['Cartao', 'TED', 'Boleto bancario'],
+  BRL: ['PIX', 'Cartao', 'TED', 'Boleto bancario'],
   USD: ['Transferencia internacional (SWIFT)', 'Wire transfer', 'ACH', 'Deposito em conta corrente'],
 }
 
@@ -18,6 +18,7 @@ const investProducts = {
 }
 
 const methodDescriptions = {
+  PIX: 'Deposito via PIX. Envie o comprovante na observacao, se quiser.',
   Cartao: 'Pagamento com cartao salvo e validacao do admin.',
   TED: 'Transferencia bancaria com dados do titular.',
   'Boleto bancario': 'Emissao e compensacao com aprovacao administrativa.',

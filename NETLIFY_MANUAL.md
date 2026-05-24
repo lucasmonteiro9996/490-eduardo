@@ -140,7 +140,26 @@ Cadastre no site (projeto novo):
 
 ---
 
-## 9. Testes
+## 9. Esqueci a senha (e-mail não chega)
+
+**Firebase** (`ocean-capital-2ec85`):
+
+1. **Authentication → Authorized domains:** `ocn.capital`, `www.ocn.capital`, `SEU-SITE.netlify.app`
+2. **Authentication → Templates → Password reset** — remetente ativo
+3. O e-mail precisa estar cadastrado **neste** projeto (não no Firebase antigo `eduardo-99751`)
+
+**Netlify (opcional — EmailJS com link gerado no servidor):**
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (conta de serviço do `ocean-capital-2ec85`)
+- `PASSWORD_RESET_EMAILJS_TEMPLATE_ID` (template com `{{reset_link}}` e `{{to_email}}`)
+
+Sem isso, o app usa o **e-mail padrão do Firebase**.
+
+Confira **spam**. Teste com um e-mail que você cadastrou no site **depois** da migração.
+
+---
+
+## 10. Testes
 
 1. `https://SEU-SITE.netlify.app` — abre o app
 2. `https://ocn.capital` — após DNS

@@ -12,16 +12,10 @@ function resolveRate(brlToUsd) {
   return brlToUsd > 0 ? brlToUsd : getCachedBrlToUsd()
 }
 
-/** Patrimônio total em USD — usa campo persistido ou o menor equivalente (evita carteira desatualizada anular débito). */
-export function getTotalUsdFromWallets(wallets, brlToUsd) {
+function getTotalUsdFromWalletNatives(wallets, brlToUsd) {
   const rate = resolveRate(brlToUsd)
   const brlWallet = wallets.find((w) => w.symbol === 'BRL')
   const usdWallet = wallets.find((w) => w.symbol === 'USD')
-
-  const stored = brlWallet?.totalUsdPatrimony ?? usdWallet?.totalUsdPatrimony
-  if (stored != null && !Number.isNaN(Number(stored))) {
-    return roundMoney(Number(stored))
-  }
 
   const brlAsUsd = (Number(brlWallet?.native) || 0) * rate
   const usdVal = Number(usdWallet?.native) || 0
@@ -31,6 +25,21 @@ export function getTotalUsdFromWallets(wallets, brlToUsd) {
   if (usdVal <= 0) return roundMoney(brlAsUsd)
 
   return roundMoney(Math.min(usdVal, brlAsUsd))
+}
+
+/** Patrimônio total em USD — usa campo persistido ou o menor equivalente (evita carteira desatualizada anular débito). */
+export function getTotalUsdFromWallets(wallets, brlToUsd) {
+  const brlWallet = wallets.find((w) => w.symbol === 'BRL')
+  const usdWallet = wallets.find((w) => w.symbol === 'USD')
+
+  const stored = brlWallet?.totalUsdPatrimony ?? usdWallet?.totalUsdPatrimony
+  if (stored != null && !Number.isNaN(Number(stored))) {
+    const storedTotal = roundMoney(Number(stored))
+    // totalUsdPatrimony zerado no Firestore não pode anular saldos nativos reais
+    if (storedTotal !== 0) return storedTotal
+  }
+
+  return getTotalUsdFromWalletNatives(wallets, brlToUsd)
 }
 
 export function walletPatrimonyFields(totalUsd) {
@@ -60,10 +69,12 @@ export function reconcileWalletBalances(wallets, brlToUsd) {
   // Mantém valores gravados no Firestore (evita reconverter e perder centavos na tela).
   if (brlWallet?.totalUsdPatrimony != null && brlWallet?.native != null && usdWallet?.native != null) {
     const totalUsd = roundMoney(Number(brlWallet.totalUsdPatrimony))
-    return [
-      { ...brlWallet, native: roundMoney(brlWallet.native), ...walletPatrimonyFields(totalUsd) },
-      { ...usdWallet, native: roundMoney(usdWallet.native), ...walletPatrimonyFields(totalUsd) },
-    ]
+    if (totalUsd !== 0) {
+      return [
+        { ...brlWallet, native: roundMoney(brlWallet.native), ...walletPatrimonyFields(totalUsd) },
+        { ...usdWallet, native: roundMoney(usdWallet.native), ...walletPatrimonyFields(totalUsd) },
+      ]
+    }
   }
 
   const totalUsd = getTotalUsdFromWallets(wallets, brlToUsd)

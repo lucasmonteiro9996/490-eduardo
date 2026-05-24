@@ -90,11 +90,46 @@ function mapTransactions(items) {
 
 function mapWallets(items) {
   return items.map((item, index) => ({
+    id: item.id,
     symbol: item.symbol || (index === 0 ? 'BRL' : 'USD'),
     name: item.name || (item.symbol === 'USD' ? 'Dólar americano' : 'Real brasileiro'),
     native: Number(item.native) || 0,
     color: item.color || (item.symbol === 'USD' ? '#4a7fdb' : '#3ecf8e'),
+    totalUsdPatrimony: item.totalUsdPatrimony,
   }))
+}
+
+/** Carteiras do Firestore para exibição no admin — preserva saldos nativos gravados. */
+export function normalizeAdminWallets(items) {
+  const mapped = mapWallets(items)
+  const brl = mapped.find((w) => w.symbol === 'BRL') || {
+    id: 'brl',
+    symbol: 'BRL',
+    name: 'Real brasileiro',
+    native: 0,
+    color: '#3ecf8e',
+  }
+  const usd = mapped.find((w) => w.symbol === 'USD') || {
+    id: 'usd',
+    symbol: 'USD',
+    name: 'Dólar americano',
+    native: 0,
+    color: '#4a7fdb',
+  }
+
+  return [brl, usd]
+}
+
+export async function fetchClientWallets(userUid) {
+  if (!hasFirebaseConfig || !db || !userUid) return []
+
+  const walletsSnapshot = await getDocs(collection(db, 'users', userUid, 'wallets'))
+  const items = walletsSnapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  }))
+
+  return normalizeAdminWallets(items)
 }
 
 function mapCards(items) {

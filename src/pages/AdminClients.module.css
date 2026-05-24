@@ -109,7 +109,13 @@
   }
 
   .statValue {
-    font-size: 1.1rem;
+    font-size: clamp(0.9rem, 3.6vw, 1.1rem);
+    max-width: 100%;
+  }
+
+  .statItemAum {
+    flex: 1 1 100%;
+    align-items: flex-start;
   }
 
   .statLabel {
@@ -133,17 +139,27 @@
   flex-direction: column;
   gap: 4px;
   flex: 1;
-  min-width: 100px;
+  min-width: 0;
   align-items: center;
   position: relative;
 }
 
+.statItemAum {
+  min-width: 0;
+}
+
 .statValue {
   font-family: 'Walkway Expand', 'Sora', sans-serif;
-  font-size: 1.4rem;
+  font-size: clamp(1rem, 2.4vw, 1.4rem);
   font-weight: 700;
   color: var(--light-main);
   letter-spacing: -0.03em;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .statLabel {
@@ -442,6 +458,7 @@
   gap: 6px 12px;
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 
 .clientBalances {
@@ -449,12 +466,16 @@
   flex-direction: column;
   gap: 2px;
   align-items: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .clientBalanceItem {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .clientBalanceSymbol {
@@ -466,10 +487,15 @@
 }
 
 .clientBalanceValue {
-  font-size: 0.82rem;
+  font-size: clamp(0.72rem, 2.8vw, 0.82rem);
   font-weight: 600;
   color: var(--light-main);
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 .clientTotalWrap {
@@ -477,6 +503,8 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .clientTotalLabel {
@@ -488,11 +516,16 @@
 
 .clientTotal {
   font-family: 'Walkway Expand', 'Sora', sans-serif;
-  font-size: 0.9rem;
+  font-size: clamp(0.78rem, 2.8vw, 0.9rem);
   font-weight: 700;
   color: #4a7fdb;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   text-shadow: 0 0 18px rgba(74, 127, 219, 0.2);
 }
 
@@ -532,18 +565,34 @@
   }
 
   .clientCardRight {
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    justify-content: stretch;
+    align-items: start;
     gap: 8px 10px;
+    width: 100%;
   }
 
   .clientBalances,
   .clientTotalWrap,
   .clientLastTx {
     align-items: flex-start;
+    max-width: 100%;
+  }
+
+  .clientLastTx {
+    grid-column: 1 / -1;
   }
 
   .clientArrow {
-    margin-left: auto;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    margin-left: 0;
+  }
+
+  .clientCard {
+    padding-right: 36px;
   }
 }
 

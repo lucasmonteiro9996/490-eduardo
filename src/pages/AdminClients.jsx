@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { loadAdminClients, adjustClientBalance, saveClientCard, updateClientAccountStatus } from '../lib/adminFirestoreService.js'
-import { getClientTotalUSD, formatNative } from '../data/mockClients.js'
-import { parseMoneyInput, reconcileWalletBalances } from '../lib/currencyConversion.js'
+import {
+  loadAdminClients,
+  adjustClientBalance,
+  saveClientCard,
+  updateClientAccountStatus,
+  fetchClientWallets,
+} from '../lib/adminFirestoreService.js'
+import {
+  formatNativeDisplay,
+  formatNativeFull,
+  formatUSDDisplay,
+  formatUSDFull,
+} from '../data/mockClients.js'
+import { getTotalUsdFromWallets, parseMoneyInput } from '../lib/currencyConversion.js'
 import { fetchBrlToUsd, getCachedBrlToUsd } from '../lib/exchangeRateService.js'
 import styles from './AdminClients.module.css'
 
@@ -117,10 +128,21 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
     }
   }, [])
 
-  const syncedWallets = useMemo(
-    () => reconcileWalletBalances(localClient.wallets, brlToUsd),
-    [localClient.wallets, brlToUsd],
-  )
+  useEffect(() => {
+    setLocalClient(client)
+
+    let active = true
+    fetchClientWallets(client.id)
+      .then((wallets) => {
+        if (!active || !wallets.length) return
+        setLocalClient((prev) => (prev.id === client.id ? { ...prev, wallets } : prev))
+      })
+      .catch(() => {})
+
+    return () => {
+      active = false
+    }
+  }, [client])
 
   const filteredTx = useMemo(() => {
     if (txFilter === 'all') return localClient.transactions
@@ -226,7 +248,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
 
       const updatedClient = {
         ...localClient,
-        wallets: result.syncedWallets || reconcileWalletBalances(localClient.wallets, brlToUsd),
+        wallets: result.syncedWallets || localClient.wallets,
         transactions: [{
           id: result.txId,
           type: delta >= 0 ? 'receive' : 'send',
@@ -335,7 +357,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
         ) : null}
 
         <div className={styles.balanceGrid}>
-          {syncedWallets.map((wallet) => (
+          {localClient.wallets.map((wallet) => (
             <div key={wallet.symbol} className={styles.balanceCard}>
               <div className={styles.balanceTop}>
                 <span className={styles.balanceSymbol} style={{ background: `${wallet.color}20`, color: wallet.color }}>
@@ -344,7 +366,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
                 <Sparkline values={sparkValues} color={wallet.color} />
               </div>
               <div className={styles.balanceAmount}>
-                {formatNative(wallet.native, wallet.symbol)}
+                {formatNativeDisplay(wallet.native, wallet.symbol)}
               </div>
               <div className={styles.balanceName}>{wallet.name}</div>
             </div>
@@ -357,7 +379,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
               </span>
             </div>
             <div className={styles.balanceAmount}>
-              ${getClientTotalUSD(localClient, brlToUsd).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {formatUSDDisplay(getTotalUsdFromWallets(localClient.wallets, brlToUsd))}
             </div>
             <div className={styles.balanceName}>Total em USD</div>
           </div>
@@ -623,7 +645,7 @@ function ClientDetail({ client, onClose, onClientUpdate, onReviewClient, brlToUs
 }
 
 function ClientCard({ client, onClick, brlToUsd, onReviewClient }) {
-  const totalUSD = getClientTotalUSD(client, brlToUsd)
+  const totalUSD = getTotalUsdFromWallets(client.wallets, brlToUsd)
   const status = accountStatus[client.status] ?? accountStatus.pending
   const tier = tierColor[client.tier] ?? tierColor.Standard
   const txCount = client.transactions.length
@@ -662,15 +684,20 @@ function ClientCard({ client, onClick, brlToUsd, onReviewClient }) {
           {client.wallets.map((wallet) => (
             <div key={wallet.symbol} className={styles.clientBalanceItem}>
               <span className={styles.clientBalanceSymbol} style={{ color: wallet.color }}>{wallet.symbol}</span>
-              <span className={styles.clientBalanceValue}>{formatNative(wallet.native, wallet.symbol)}</span>
+              <span
+                className={styles.clientBalanceValue}
+                title={formatNativeFull(wallet.native, wallet.symbol)}
+              >
+                {formatNativeDisplay(wallet.native, wallet.symbol)}
+              </span>
             </div>
           ))}
         </div>
 
         <div className={styles.clientTotalWrap}>
           <span className={styles.clientTotalLabel}>≈ Total USD</span>
-          <span className={styles.clientTotal}>
-            ${totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          <span className={styles.clientTotal} title={formatUSDFull(totalUSD)}>
+            {formatUSDDisplay(totalUSD)}
           </span>
         </div>
 
@@ -760,7 +787,7 @@ export default function AdminClients() {
 
   const totalActiveUSD = clientsState.clients
     .filter((client) => client.status === 'active')
-    .reduce((sum, client) => sum + getClientTotalUSD(client, brlToUsd), 0)
+    .reduce((sum, client) => sum + getTotalUsdFromWallets(client.wallets, brlToUsd), 0)
 
   const countActive = clientsState.clients.filter((client) => client.status === 'active').length
   const countSuspended = clientsState.clients.filter((client) => client.status === 'suspended').length
@@ -819,9 +846,13 @@ export default function AdminClients() {
             <span className={styles.statLabel}>Suspensas</span>
           </div>
           <div className={styles.statDivider} />
-          <div className={styles.statItem}>
-            <span className={styles.statValue} style={{ color: '#4a7fdb' }}>
-              ${totalActiveUSD.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          <div className={`${styles.statItem} ${styles.statItemAum}`}>
+            <span
+              className={styles.statValue}
+              style={{ color: '#4a7fdb' }}
+              title={formatUSDFull(totalActiveUSD)}
+            >
+              {formatUSDDisplay(totalActiveUSD)}
             </span>
             <span className={styles.statLabel}>AUM total (USD)</span>
           </div>
@@ -963,6 +994,7 @@ export default function AdminClients() {
 
       {selectedClient && (
         <ClientDetail
+          key={selectedClient.id}
           client={selectedClient}
           onClose={() => setSelectedClient(null)}
           brlToUsd={brlToUsd}
